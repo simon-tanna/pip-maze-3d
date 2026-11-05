@@ -35,7 +35,7 @@ Layers, in dependency order (an import may only point left):
 
 `src/core` → `src/game` → `src/render` / `src/ui` / `src/assets` → `src/main.ts`
 
-- **`src/core/`**: pure, deterministic game logic: grid, generator, pathfinding, mummy AI, hazard timing. **No three.js, no DOM.** ESLint enforces this (`no-restricted-imports`, `no-restricted-globals`) so everything here is unit-testable in Node. `grid.ts` holds `TILE_SIZE` (2 m) and `tileToWorld`, the only grid → world mapping.
+- **`src/core/`**: pure, deterministic game logic: grid, generator, pathfinding, mummy AI, hazard timing. **No three.js, no DOM.** ESLint enforces this (`no-restricted-imports`, `no-restricted-globals`) so everything here is unit-testable in Node. `grid.ts` is the only grid ↔ world mapping. Origin at the map's top-left corner, col → +x, row → +z, positions at tile centres, `TILE_SIZE` = 2 m. Exports `tileToWorld`, `worldToTile` (floor; edges go to the higher tile; not clamped), `tileKey` (v2's `"col,row"` format), `mazeBounds`, `GridPos`, `WorldXZ`.
 - **`src/game/`**: simulation and orchestration: `loop.ts` (fixed timestep), and later scenes/state, input, player-db.
 - **`src/render/`**: everything three.js: renderer (`renderer.ts`), chamber building, hero rig, hazards, FX, palette.
 - **`src/ui/`**: DOM overlay (HUD, menus, touch d-pad) inside `#hud` in `index.html`. HTML/CSS, not three.js, so camera post-processing never touches it (the same reason v2 keeps HUD in its own scene).
