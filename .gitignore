@@ -1,0 +1,21 @@
+node_modules
+dist
+*.local
+*.log
+
+# Test output
+playwright-report/
+test-results/
+coverage/
+
+# Blender autosaves / backups
+*.blend1
+*.blend2
+__pycache__/
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+.superpowers/
