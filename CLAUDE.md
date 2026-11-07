@@ -37,7 +37,7 @@ Layers, in dependency order (an import may only point left):
 
 - **`src/core/`**: pure, deterministic game logic: grid, generator, pathfinding, mummy AI, hazard timing. **No three.js, no DOM.** ESLint enforces this (`no-restricted-imports`, `no-restricted-globals`) so everything here is unit-testable in Node. `grid.ts` is the only grid ↔ world mapping. Origin at the map's top-left corner, col → +x, row → +z, positions at tile centres, `TILE_SIZE` = 2 m. Exports `tileToWorld`, `worldToTile` (floor; edges go to the higher tile; not clamped), `tileKey` (v2's `"col,row"` format), `mazeBounds`, `GridPos`, `WorldXZ`.
 - **`src/game/`**: simulation and orchestration: `loop.ts` (fixed timestep), and later scenes/state, input, player-db.
-- **`src/render/`**: everything three.js: renderer (`renderer.ts`), chamber building, hero rig, hazards, FX, palette.
+- **`src/render/`**: everything three.js: renderer (`renderer.ts`), chamber building, hero rig, hazards, FX, palette (`palette.json` + `palette.ts`), feel tunables (`look.ts`).
 - **`src/ui/`**: DOM overlay (HUD, menus, touch d-pad) inside `#hud` in `index.html`. HTML/CSS, not three.js, so camera post-processing never touches it (the same reason v2 keeps HUD in its own scene).
 - **`src/assets/`**: loaders. `loadModel('placeholders/wall')` loads `public/models/placeholders/wall.glb`, caches the parse, and returns a clone. Use `SkeletonUtils.clone` for skinned models.
 
@@ -69,10 +69,35 @@ Third-person follow (behind/above the hero). Input directions will need to be ca
 
 - Port pure modules into `src/core` test-first. For the generator, port v2's baseline fixture test (`tests/generator-coins.test.mjs`, `tests/fixtures/generator-baseline.json`) to Vitest before the code, so seed-for-seed parity is proven.
 - v2 rules that still apply: telegraphs stay inside the original hazard timings; hazard go-live hooks re-check tile occupants; respawn grace of 1 s; coins bank on pickup; dual-key levels from index ≥ 3; map tile values `0` floor / `1` wall / `2` start / `3` chest.
-- All colours come from one palette module (v2's "Torchlit Sandstone" `P`/`LIGHT`). Don't write hex colours elsewhere once `src/render/palette.ts` exists. Light comes from the top-left.
+- All colours come from v2's "Torchlit Sandstone" `P`/`LIGHT`, kept in one file: `src/render/palette.json`. `palette.ts` (TS) and `blender/scripts/lib/palette.py` (bpy) both read it. Once it exists, don't write hex or RGB colour literals anywhere else, in TS or Python. Light comes from the top-left of the screen, which is the north-west in 3D.
+
+## Art direction
+
+Stylised PBR, not pixel art: see `docs/adr/0001-stylised-pbr-art-direction.md`, with full detail in `.scratch/3d-slice/issues/02-art-direction.md`.
+
+- The palette is an **authoring** palette. Every material input, emissive and light colour comes from it; lit output may leave it. Ramps give surface variation (block tone, mortar, wear), not painted lighting.
+- The colour reservations are binding: fire ramp only for hazards and telegraphs (the one exception is a flame carried by the hero: `FIRE_HOT`/`FIRE_CORE` only), gold only for pickups, curse teal only for mummies, steel only for blades and spikes. The floor is the darkest, lowest-contrast surface.
+- Kit materials are bpy-procedural Principled BSDF setups with palette inputs, baked to texture sets with AO, at 128 px/m. CC0 maps are for greyscale detail only, never colour.
+- Lights are fixed at 1 shadowed north-west key + 1 hemisphere fill + 1 torch + 4 flame-pool slots, plus a palette gradient environment map. Pickups glow through emissive + bloom, never with their own light. Never add, remove or toggle a light during play (that recompiles shaders).
+- Tone mapping is `NeutralToneMapping`. The scaffold's `renderer.ts` still uses ACES and switches when the slice lands. Post: bloom (only emissive at intensity ≥ 2) → vignette → `OutputPass`. No SSAO, outline or pixelation passes.
+- Feel values (light intensities, bloom, vignette, material numbers) live in `src/render/look.ts`, with a dev-only lil-gui panel. Don't hard-code them elsewhere.
 
 ## Dev tooling
 
 - In dev builds, `window.__game` exposes `{ scene, camera, renderer }`.
 - `.claude/skills/threejs-builder/` (copied from v2) covers three.js patterns: glTF loading/cloning, coordinate frames, game patterns.
 - `.claude/launch.json` defines the `dev` preview server (port 5180).
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as local markdown files under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`), recorded as a `Status:` line in each issue file. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
