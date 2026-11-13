@@ -3,6 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: 'tests/e2e',
   fullyParallel: true,
+  // One SwiftShader boot can take ~20 s under parallel workers; a spec may boot twice and walk.
+  timeout: 60_000,
   reporter: 'list',
   use: {
     baseURL: 'http://localhost:5180',
