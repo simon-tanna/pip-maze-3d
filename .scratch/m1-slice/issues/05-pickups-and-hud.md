@@ -15,11 +15,15 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 
 **Status:** ready-for-agent
 
-- [ ] Unit tests cover the pickup order on landing, banking on pickup, the chest-locked event, the `step` event, and the key 2 reveal and hide-on-loss logic on a synthetic two-key level
-- [ ] Unit test: a key flight that lands after the key count dropped leaves the slot empty
-- [ ] ESLint bars `src/ui/**` from importing `three` and `@render/*`
-- [ ] e2e on the shared fixture: walking over a coin increments `sim` coins and the HUD count; picking up the key fills the slot; landing on the chest without the key shows the toast, and its opacity follows 180 / 900 / 300 ms
-- [ ] e2e: an empty slot shows the 0.75 `INK` tint and a filled one doesn't
-- [ ] e2e with `prefers-reduced-motion` emulated: the pop scale stays 1 and the flight still runs
-- [ ] The HUD is unaffected by post-processing (it's DOM)
-- [ ] `pnpm check` and `pnpm test:e2e` pass
+- [x] Unit tests cover the pickup order on landing, banking on pickup, the chest-locked event, the `step` event, and the key 2 reveal and hide-on-loss logic on a synthetic two-key level
+- [x] Unit test: a key flight that lands after the key count dropped leaves the slot empty
+- [x] ESLint bars `src/ui/**` from importing `three` and `@render/*`
+- [x] e2e on the shared fixture: walking over a coin increments `sim` coins and the HUD count; picking up the key fills the slot; landing on the chest without the key shows the toast, and its opacity follows 180 / 900 / 300 ms
+- [x] e2e: an empty slot shows the 0.75 `INK` tint and a filled one doesn't
+- [x] e2e with `prefers-reduced-motion` emulated: the pop scale stays 1 and the flight still runs
+- [x] The HUD is unaffected by post-processing (it's DOM)
+- [x] `pnpm check` and `pnpm test:e2e` pass
+
+## Comments
+
+- 2026-11-14 (agent, branch `ticket/05-pickups-and-hud`): pickup rules in `@core/pickups`, driven by `createSim({ map, machine, pickups, session })`; `sim.dropKey()` is ready for 07. HUD is `src/ui/hud.ts` (+ `key-slots.ts`, `tweens.ts`), timed on render-interpolated sim time, tunables in `look.hud`; greybox pickups in `@render/pickups`. E2e: `tests/e2e/pickups-hud.spec.ts`, using the new `LEVEL_0.chestWithoutKey` route. `DEV_PORT` lets each worktree run its own e2e server.
