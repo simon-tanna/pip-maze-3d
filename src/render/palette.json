@@ -1,0 +1,62 @@
+{
+  "$comment": "Torchlit Sandstone (v2 src/game/lib/palette.js), the only place a colour literal may live. sRGB hex. Ramps run dark to light. Reservations: fire ramp for hazards and telegraphs only, gold for pickups only, curse teal for mummies only, steel for blades and spikes only, HERO_* for the hero only. LIGHT values are either hex or the name of a P colour. HERO_* starting values are sampled from docs/art/pip-concept.png.",
+  "P": {
+    "INK": "#0e0a0c",
+    "SHADOW": "#1c1418",
+
+    "FLOOR_DARK": "#2a1f1c",
+    "FLOOR": "#3a2b24",
+    "FLOOR_LIGHT": "#4d3a2e",
+
+    "STONE_DARK": "#4a3428",
+    "STONE_SIDE": "#6b4c38",
+    "STONE": "#8f6a4c",
+    "STONE_LIGHT": "#b48e64",
+    "SAND": "#d8b98a",
+
+    "MOSS_DARK": "#26331f",
+    "MOSS": "#45583a",
+    "BONE": "#8a7f6c",
+
+    "LINEN_DARK": "#6f7562",
+    "LINEN": "#b3b49a",
+    "CURSE_DARK": "#1d5c4e",
+    "CURSE": "#46e0b4",
+
+    "STEEL_DARK": "#3a3f4c",
+    "STEEL": "#7d8799",
+    "STEEL_LIGHT": "#d6dde6",
+
+    "EMBER_DARK": "#6e1a0e",
+    "EMBER": "#b8361a",
+    "FIRE": "#f0742a",
+    "FIRE_HOT": "#ffbf47",
+    "FIRE_CORE": "#fff1c9",
+
+    "GOLD_DARK": "#8c5a12",
+    "GOLD": "#e8a92e",
+    "GOLD_LIGHT": "#ffe592",
+
+    "BLOOD": "#b3241d",
+    "CREAM": "#f3e4c4",
+
+    "HERO_HAT": "#706a3d",
+    "HERO_HAT_BAND": "#504d31",
+    "HERO_COAT": "#3f415c",
+    "HERO_COAT_DARK": "#2e2f44",
+    "HERO_SKIN": "#e3a27b",
+    "HERO_HAIR": "#5a3c2e",
+    "HERO_LEATHER": "#774c36",
+    "HERO_BOOT": "#4d3329",
+    "HERO_GLOVE": "#262725",
+    "HERO_SCAR": "#9f2223"
+  },
+  "LIGHT": {
+    "AMBIENT": "#9a8890",
+    "KEY": "SAND",
+    "TORCH": "FIRE_HOT",
+    "FLAME": "FIRE",
+    "GOLD": "GOLD_LIGHT",
+    "CURSE": "CURSE"
+  }
+}
