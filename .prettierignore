@@ -6,3 +6,4 @@ blender
 playwright-report
 test-results
 .claude/skills
+tests/fixtures
