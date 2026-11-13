@@ -1,0 +1,152 @@
+/*
+ * The chamber HUD. Colours are the palette's CSS variables (main.ts sets them from css()).
+ * `.hud-panel` is v2's drawPanel: a 2 px INK border, SHADOW fill at 0.92, a 2 px accent on
+ * the top and left edges, and an INK line at 0.6 along the bottom.
+ */
+.hud {
+  --hud-top: 14px;
+  --hud-edge: 16px;
+  --hud-slot: 40px;
+  font-family: var(--font-body);
+  color: var(--cream);
+  user-select: none;
+}
+
+.hud-panel {
+  --accent: var(--stone-dark);
+  box-sizing: border-box;
+  border: 2px solid var(--ink);
+  background: color-mix(in srgb, var(--shadow) 92%, transparent);
+  box-shadow:
+    inset 0 -2px 0 color-mix(in srgb, var(--ink) 60%, transparent),
+    inset 2px 2px 0 var(--accent);
+}
+
+.hud-left {
+  position: absolute;
+  top: var(--hud-top);
+  left: var(--hud-edge);
+  display: flex;
+  gap: 12px;
+}
+
+.hud-title,
+.hud-coins {
+  height: calc(var(--hud-slot) + 8px);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  text-shadow:
+    -2px 0 var(--ink),
+    2px 0 var(--ink),
+    0 -2px var(--ink),
+    0 2px var(--ink);
+}
+
+.hud-coins {
+  --accent: var(--gold-dark);
+  gap: 8px;
+  color: var(--gold-light);
+}
+
+.hud-coin-icon {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: var(--gold);
+  border: 3px solid var(--gold-dark);
+  box-shadow: inset 2px 2px 0 var(--gold-light);
+}
+
+.hud-coin-count {
+  display: inline-block;
+  min-width: 1ch;
+}
+
+.hud-keys {
+  position: absolute;
+  top: var(--hud-top);
+  right: var(--hud-edge);
+  display: flex;
+  gap: 8px;
+}
+
+.hud-key-slot {
+  --accent: var(--gold-dark);
+  width: calc(var(--hud-slot) + 4px);
+  height: calc(var(--hud-slot) + 4px);
+  display: grid;
+  place-items: center;
+}
+
+.hud-key-icon {
+  display: grid;
+  width: 26px;
+  height: 24px;
+  color: var(--gold);
+}
+
+.hud-key-icon svg,
+.hud-flyer svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* v2: an empty slot is the key as an INK silhouette at 0.75. */
+.hud-key-slot[data-filled='false'] .hud-key-icon {
+  color: var(--ink);
+  opacity: 0.75;
+}
+
+.hud-toast {
+  position: absolute;
+  left: 50%;
+  top: 41%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 26px;
+  color: var(--gold-light);
+  text-shadow:
+    -3px 0 var(--ink),
+    3px 0 var(--ink),
+    0 -3px var(--ink),
+    0 3px var(--ink);
+}
+
+.hud-flyers > * {
+  position: fixed;
+  left: 0;
+  top: 0;
+}
+
+.hud-flyer-coin {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: var(--gold);
+  border: 3px solid var(--gold-dark);
+}
+
+.hud-flyer-key {
+  width: 34px;
+  height: 31px;
+  color: var(--gold);
+}
+
+.hud-plus {
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--gold-light);
+  text-shadow:
+    -2px 0 var(--ink),
+    2px 0 var(--ink),
+    0 -2px var(--ink),
+    0 2px var(--ink);
+}
