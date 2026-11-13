@@ -42,5 +42,29 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // src/ui is the DOM HUD: it reacts to simulation events and gets `project()` injected.
+    files: ['src/ui/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['three', 'three/*'], message: 'src/ui must stay three.js-free.' },
+            { group: ['@render/*', '**/render/*'], message: 'src/ui may not import render.' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/render/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [{ group: ['@ui/*', '**/ui/*'], message: 'src/render may not import ui.' }] },
+      ],
+    },
+  },
   prettier,
 );
