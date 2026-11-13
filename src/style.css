@@ -1,9 +1,34 @@
+/* Colours come from palette.json: main.ts sets --ink etc. on :root at boot (palette `css()`). */
+
+/* Self-hosted, OFL-licensed (licences beside the files in public/fonts/). Latin subset. */
+@font-face {
+  font-family: 'Black Ops One';
+  src: url('/fonts/BlackOpsOne-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Pixelify Sans';
+  src: url('/fonts/PixelifySans-Variable.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-display: 'Black Ops One', system-ui, sans-serif;
+  --font-body: 'Pixelify Sans', 'Courier New', monospace;
+}
+
 html,
 body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: #0e0a0c;
+  background: var(--ink);
+  font-family: var(--font-body);
 }
 
 #game {
