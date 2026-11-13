@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Doom Maze 3D**: a third-person 3D translation of _Pip's Temple Adventure_ from `../pip-maze-v-2` (Phaser 4, 2D). The rules carry over: procedurally generated maze chambers, keys → chest, flames, spikes, axe blades, mummies, coins, a tutorial and a boss arena. The presentation becomes 3D: a three.js runtime with models made in Blender.
 
-**Status: scaffold only.** `src/main.ts` boots a placeholder scene (capsule hero over a chamber-sized greybox of Blender-exported placeholders) with the real light rig and post chain. No game logic has been ported. `docs/v2-port-map.md` lists every v2 module and where it goes; read it, and v2's own `CLAUDE.md`, before porting anything.
+**Status: scaffold only.** `src/main.ts` boots a placeholder scene (level 0 built as a chamber from a generated map on the placeholder kit, with a capsule hero on the start tile) with the real light rig and post chain. No game logic has been ported. `docs/v2-port-map.md` lists every v2 module and where it goes; read it, and v2's own `CLAUDE.md`, before porting anything.
 
 ## Stack
 
@@ -25,7 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `pnpm test:e2e`: Playwright over `tests/e2e/`. Starts `pnpm dev` itself; the smoke test waits for `body[data-ready="true"]`.
 - `pnpm format`: Prettier write
 - `pnpm assets:build`: runs every procedural bpy builder (`blender/scripts/build_*.py`, discovered by name) so a palette change rebuilds every GLB. A new builder registers by being named `build_<name>.py` and doing its work under `if __name__ == "__main__":` from a fresh scene.
-- `pnpm assets:placeholders`: bpy builds placeholder wall/floor → `public/models/placeholders/*.glb`
+- `pnpm assets:placeholders`: bpy builds the placeholder chamber kit → `public/models/placeholders/chamber.glb`
 - `pnpm assets:export`: exports every `blender/source/**/*.blend` → `public/models/**/*.glb` (same relative path)
 
 `blender/blender.sh` finds Blender through `$BLENDER`, then `blender` on PATH, then `/Applications/Blender.app`.
@@ -40,7 +40,7 @@ Layers, in dependency order (an import may only point left):
 - **`src/game/`**: simulation and orchestration: `loop.ts` (fixed timestep), and later scenes/state, input, player-db.
 - **`src/render/`**: everything three.js: renderer (`renderer.ts`), chamber building, hero rig, hazards, FX, palette (`palette.json` + `palette.ts`), feel tunables (`look/`), light rig (`lights.ts`), rig guard (`rig-guard.ts`).
 - **`src/ui/`**: DOM overlay (HUD, menus, touch d-pad) inside `#hud` in `index.html`. HTML/CSS, not three.js, so camera post-processing never touches it (the same reason v2 keeps HUD in its own scene).
-- **`src/assets/`**: loaders. `loadModel('placeholders/wall')` loads `public/models/placeholders/wall.glb`, caches the parse, and returns a clone. Use `SkeletonUtils.clone` for skinned models.
+- **`src/assets/`**: loaders. `loadModel(name)` loads `public/models/<name>.glb`, caches the parse, and returns a clone (shadow flags as exported; each view sets its own). Use `SkeletonUtils.clone` for skinned models. `loadGltf(name).getNode(node)` returns a named node's shared geometry and material for instancing (the chamber kit).
 
 Path aliases: `@core/*`, `@game/*`, `@render/*`, `@ui/*`, `@assets/*`.
 
@@ -58,7 +58,7 @@ Third-person follow (behind/above the hero). Input directions will need to be ca
 
 - `blender/source/**/*.blend`: hand-authored sources. `blender/scripts/*.py`: procedural builders and exporters. `blender/scripts/lib/`: shared helpers (`paths.py`, `gltf.py`). Scripts put their own dir on `sys.path`, so import as `from lib.gltf import export_glb`.
 - **All glTF export goes through `lib/gltf.export_glb`**, so hand-made and generated assets get identical settings: GLB, `export_yup` (Blender Z-up → three Y-up), modifiers applied, custom properties → `userData`.
-- **1 Blender unit = 1 metre = 1 three.js unit.** Maze pieces are modelled centred on the origin in X/Y, with the base on Z=0, and sized to `TILE_SIZE`. `TILE_SIZE` is duplicated in `blender/scripts/build_placeholders.py`; keep it in sync with `src/core/grid.ts`.
+- **1 Blender unit = 1 metre = 1 three.js unit.** Maze pieces are modelled centred on the origin in X/Y, with the base on Z=0, and sized to `TILE_SIZE`. `TILE_SIZE` and `WALL_HEIGHT` (2.2 m) are duplicated in `blender/scripts/build_placeholders.py`; keep them in sync with `src/core/grid.ts` and `src/render/chamber-kit.ts`. The chamber kit's node names and local frames are the contract in `chamber-kit.ts`.
 - Objects whose names start with `_` (helpers, boolean cutters) are not exported.
 - Exported `.glb` files in `public/models/` are build outputs, but they are committed (via LFS) so the game runs without Blender. Re-export after changing a source.
 

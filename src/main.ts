@@ -7,11 +7,16 @@ import {
   Timer,
 } from 'three';
 import type { Light } from 'three';
-import { loadModel } from '@assets/models';
+import { loadGltf } from '@assets/models';
+import { planChamber } from '@core/chamber-plan';
+import { generateLevel } from '@core/generator';
 import { mazeBounds, tileToWorld } from '@core/grid';
+import { startTile } from '@core/level';
+import { resolveRun } from '@core/run-seed';
 import { createFixedLoop } from '@game/loop';
+import { createChamberView } from '@render/chamber';
+import { CHAMBER_KIT } from '@render/chamber-kit';
 import { createFrameStats } from '@render/frame-stats';
-import { GREYBOX_COLS, GREYBOX_ROWS, buildGreybox } from '@render/greybox';
 import { createLightRig, createPaletteEnvironment } from '@render/lights';
 import { look } from '@render/look';
 import { LIGHT, P, color } from '@render/palette';
@@ -35,9 +40,15 @@ function countLiveLights(scene: Scene): number {
   return n;
 }
 
+/** A fresh uint32 base seed. Never `Math.random`: level seeds must stay replayable. */
+function drawSeed(): number {
+  return crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
+}
+
 /**
- * Scaffold boot: the fixed light rig and post chain over a chamber-sized greybox, with a
- * capsule standing in for the hero. Ticket 03 replaces the greybox with the real chamber.
+ * Boot: the run's first level built as a chamber on the placeholder kit, under the fixed
+ * light rig and post chain, seen from the slice camera, with a capsule on the start tile
+ * standing in for the hero.
  */
 async function boot(): Promise<void> {
   const container = document.getElementById('game');
@@ -55,14 +66,21 @@ async function boot(): Promise<void> {
   scene.environment = createPaletteEnvironment(renderer);
   const rig = createLightRig(scene);
 
-  const [wall, floor] = await Promise.all([
-    loadModel('placeholders/wall'),
-    loadModel('placeholders/floor'),
-  ]);
-  scene.add(buildGreybox(wall, floor));
-  rig.fitShadowTo(mazeBounds(GREYBOX_COLS, GREYBOX_ROWS));
+  const run = resolveRun(new URLSearchParams(location.search), drawSeed);
+  for (const warning of run.warnings) console.warn(`[run] ${warning}`);
+  console.info(
+    `[run] base seed ${run.base}${run.pinned ? ' (pinned)' : ''}; level ${run.level}, seed ${run.seed}`,
+  );
+  const level = generateLevel(run.level, run.seed);
 
-  const heroTile = tileToWorld(19, 7);
+  const chamber = createChamberView(await loadGltf(CHAMBER_KIT));
+  chamber.build(planChamber(level, run.seed));
+  scene.add(chamber.group);
+  const cols = level.map[0]?.length ?? 0;
+  rig.fitShadowTo(mazeBounds(cols, level.map.length)); // the map, not the padding
+
+  const start = startTile(level.map);
+  const heroTile = tileToWorld(start.col, start.row);
   const hero = new Mesh(
     new CapsuleGeometry(0.4, 0.7, 4, 12),
     new MeshStandardMaterial({ color: color('HERO_COAT'), roughness: 0.8 }),
@@ -71,17 +89,17 @@ async function boot(): Promise<void> {
   hero.castShadow = true;
   scene.add(hero);
 
-  // Light bench: the 4 pool slots sit on floor tiles around the hero, in view.
+  // Light bench: the 4 pool slots sit around the hero, in view.
   rig.pools.forEach((pool, i) => {
-    const [col, row] = (
+    const [dc, dr] = (
       [
-        [17, 7],
-        [21, 7],
-        [19, 5],
-        [19, 9],
+        [-2, 0],
+        [2, 0],
+        [0, -2],
+        [0, 2],
       ] as const
-    )[i % 4] ?? [19, 7];
-    const { x, z } = tileToWorld(col, row);
+    )[i % 4] ?? [0, 0];
+    const { x, z } = tileToWorld(start.col + dc, start.row + dr);
     pool.position.set(x, look.lights.poolHeight, z);
   });
 
@@ -94,6 +112,7 @@ async function boot(): Promise<void> {
 
   const frame = () => {
     scene.environmentIntensity = look.lights.envIntensity;
+    chamber.update();
     rig.update({ hero: hero.position, poolsAtPeak: look.bench.poolsAtPeak });
     placeCamera();
     view.render();
@@ -151,6 +170,9 @@ async function boot(): Promise<void> {
         rig,
         guard,
         stats,
+        run,
+        level,
+        chamber,
       },
     });
   }
