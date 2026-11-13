@@ -52,7 +52,7 @@ Path aliases: `@core/*`, `@game/*`, `@render/*`, `@ui/*`, `@assets/*`.
 
 ### Camera
 
-Third-person follow (behind/above the hero). Input directions will need to be camera-relative while the simulation stays on the grid.
+Fixed-yaw north chase (`src/render/camera-rig.ts`, map ticket 01): the camera never rotates, so arrows/WASD map 1:1 to world grid directions. No camera-relative input.
 
 ## Blender conventions
 

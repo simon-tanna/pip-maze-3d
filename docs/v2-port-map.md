@@ -17,13 +17,13 @@ Status: `src/core/grid.ts` and `src/core/generator.ts` done; everything else not
 
 ## Rewritten for 3D
 
-| v2                                                      | 3D destination                                   | Notes                                                                                                        |
-| ------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `environment.js` (autotiled walls, `drawChamber`)       | `src/render/chamber.ts` + Blender wall/floor kit | 4-bit autotile mask → choose wall mesh variant; use `InstancedMesh` per variant.                             |
-| `hazard-art.js` + `hazards.js` visuals                  | Blender models + `src/render/hazards/*`          | Spike / flame nozzle / axe blade / mummy as .glb; the logic stays in core.                                   |
-| `hero.js` (outline, squash, dust)                       | `src/render/hero.ts` + rigged Blender character  | `AnimationMixer` idle/walk; v2 sprite sheets are only reference for Pip/John/Ellen.                          |
-| `grid-input.js` (buffer, hold-to-walk, corner assist)   | `src/game/grid-input.ts`                         | Keep the behaviour; directions become camera-relative for third-person.                                      |
-| `fx.js` (shake, hitStop, iris, particles)               | `src/render/fx.ts`                               | Honour `prefers-reduced-motion`.                                                                             |
-| `palette.js` (`P`, `LIGHT`)                             | `src/render/palette.ts`                          | Still the only place hex colours live.                                                                       |
-| `ui.js`, `Hud.js`, `dpad.js`                            | `src/ui/*` (DOM overlay on `#hud`)               | HTML/CSS, not three.js.                                                                                      |
-| Scenes (Boot, Player, Title, Game, Win, Tutorial, Boss) | `src/game/state.ts`                              | A small state machine on top of `createFixedLoop` (see the M1 spec); per-scene modules later only if needed. |
+| v2                                                      | 3D destination                                    | Notes                                                                                                        |
+| ------------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `environment.js` (autotiled walls, `drawChamber`)       | `src/render/chamber.ts` + Blender wall/floor kit  | 4-bit autotile mask → choose wall mesh variant; use `InstancedMesh` per variant.                             |
+| `hazard-art.js` + `hazards.js` visuals                  | Blender models + `src/render/hazards/*`           | Spike / flame nozzle / axe blade / mummy as .glb; the logic stays in core.                                   |
+| `hero.js` (outline, squash, dust)                       | `src/render/hero.ts` + rigged Blender character   | `AnimationMixer` idle/walk; v2 sprite sheets are only reference for Pip/John/Ellen.                          |
+| `grid-input.js` (buffer, hold-to-walk, corner assist)   | `src/core/grid-input.ts` + `src/game/keyboard.ts` | Keep the behaviour; directions stay world-relative, 1:1 (the camera never rotates). Buffer ages in sim time. |
+| `fx.js` (shake, hitStop, iris, particles)               | `src/render/fx.ts`                                | Honour `prefers-reduced-motion`.                                                                             |
+| `palette.js` (`P`, `LIGHT`)                             | `src/render/palette.ts`                           | Still the only place hex colours live.                                                                       |
+| `ui.js`, `Hud.js`, `dpad.js`                            | `src/ui/*` (DOM overlay on `#hud`)                | HTML/CSS, not three.js.                                                                                      |
+| Scenes (Boot, Player, Title, Game, Win, Tutorial, Boss) | `src/game/state.ts`                               | A small state machine on top of `createFixedLoop` (see the M1 spec); per-scene modules later only if needed. |
