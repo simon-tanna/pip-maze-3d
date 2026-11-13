@@ -16,10 +16,14 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 
 **Status:** ready-for-agent
 
-- [ ] `planChamber` unit tests: the same seed gives the same plan; faces only towards open neighbours; padding never overlaps the map; variant weights match; no piece's count exceeds `PLAN_CAPACITY` over the baseline seeds
-- [ ] Loading `?seed=…&level=0` twice renders an identical chamber; without params, the console logs the base seed
-- [ ] `?seed=S&level=0` builds the same map as v2's `generateLevel(0, S)`
-- [ ] `?level=5` and `?seed=abc` each log a warning and fall back to an unpinned level 0
-- [ ] Walls are 2.2 m and the background is `INK`
-- [ ] e2e smoke still reaches `data-ready`
-- [ ] `pnpm check` passes
+- [x] `planChamber` unit tests: the same seed gives the same plan; faces only towards open neighbours; padding never overlaps the map; variant weights match; no piece's count exceeds `PLAN_CAPACITY` over the baseline seeds
+- [x] Loading `?seed=…&level=0` twice renders an identical chamber; without params, the console logs the base seed
+- [x] `?seed=S&level=0` builds the same map as v2's `generateLevel(0, S)`
+- [x] `?level=5` and `?seed=abc` each log a warning and fall back to an unpinned level 0
+- [x] Walls are 2.2 m and the background is `INK`
+- [x] e2e smoke still reaches `data-ready`
+- [x] `pnpm check` passes
+
+## Comments
+
+- 2026-11-14 (agent): done on `ticket/03-see-the-chamber`. `planChamber(level, seed)` and `PLAN_CAPACITY` / `planCapacity(cols, rows)` in `src/core/chamber-plan.ts`; run seeds in `src/core/run-seed.ts` (`resolveRun`, `seedForLevel`); `startTile` in `src/core/level.ts`. The kit contract (node names, local frames, contact-strip UVs) is `src/render/chamber-kit.ts`, checked against the GLB by `tests/unit/chamber-kit.test.ts`; `src/render/chamber.ts` instances the plan. Calls made: faces' rotation turns local +z (south) towards the open side; contact strips sit on the floor tile with +z towards the wall and reach `CONTACT_DEPTH` (v2's AO bands: 0.5 m N/W, 0.125 m E/S); the strip material is multiply-blended `INK` with an alpha ramp (`look.chamber`). `?level=1` without a seed starts an unpinned run at level 1. Not yet done: `face_slot` is in the kit but nothing places it (ticket 08); the placeholder faces have no cap lip. The greybox and `placeholders/wall|floor.glb` are gone.
