@@ -16,11 +16,26 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 
 **Status:** ready-for-agent
 
-- [ ] No hex or RGB colour literal remains outside the palette JSON, in TS or Python (the scaffold's literals are gone)
-- [ ] Feel values appear only in the look module, and the dev panel and readout are absent from `pnpm build` output
-- [ ] A unit or e2e check asserts the renderer config: `NeutralToneMapping`, pixel ratio ≤ 2, a 4-sample composer target, bloom threshold and strength from `look`
-- [ ] No light is ever added, removed or toggled after boot: a guard asserts the per-frame collected light count and `renderer.info.programs.length` stay constant (ticket 07 extends it across a death-and-grace cycle)
-- [ ] CLAUDE.md's note that the scaffold still uses ACES is removed
+- [x] No hex or RGB colour literal remains outside the palette JSON, in TS or Python (the scaffold's literals are gone)
+- [x] Feel values appear only in the look module, and the dev panel and readout are absent from `pnpm build` output
+- [x] A unit or e2e check asserts the renderer config: `NeutralToneMapping`, pixel ratio ≤ 2, a 4-sample composer target, bloom threshold and strength from `look`
+- [x] No light is ever added, removed or toggled after boot: a guard asserts the per-frame collected light count and `renderer.info.programs.length` stay constant (ticket 07 extends it across a death-and-grace cycle)
+- [x] CLAUDE.md's note that the scaffold still uses ACES is removed
 - [ ] Light bench on the human's MacBook (1080p, DPR 1, bloom on, 4 pool lights at peak): the logged summary is recorded on this ticket. Pass: p95 ≤ 16.7 ms. On a miss, the fallback (2 pool slots, or peak scale lowered until it passes) is decided and recorded here before ticket 12 starts
-- [ ] `pnpm assets:build` rebuilds the placeholders headlessly
-- [ ] `pnpm check` and `pnpm test:e2e` pass
+- [x] `pnpm assets:build` rebuilds the placeholders headlessly
+- [x] `pnpm check` and `pnpm test:e2e` pass
+
+## Comments
+
+**2026-11-14, agent (`ticket/02-light-rig-and-post`):** landed.
+
+- Palette: `src/render/palette.json` holds v2's `P`/`LIGHT` plus `HERO_*` sampled from the concept. `HERO_HAT` `#706a3d` sits about 45° of hue from `MOSS`. Extra slots: `HERO_HAT_BAND`, `HERO_HAIR`, `HERO_BOOT`, `HERO_SCAR`. `LIGHT` entries may name a `P` colour. Added `LIGHT.KEY` = `SAND`, because v2 had no key-light colour. `palette.ts` gives `P`, `LIGHT`, `color()` and `css()`. `lib/palette.py` gives linear `rgb()`/`rgba()`, which Vitest cross-checks against three. CSS reads `--ink` etc., which `main.ts` sets. `tests/unit/no-colour-literals.test.ts` scans `src`, `blender/scripts` and `index.html`.
+- **Deviation:** look is a directory, `src/render/look/` (one file per domain, plus `registry.ts` and `index.ts`), not a single `look.ts`, so parallel tickets each add a file plus one line in `index.ts`. Sections so far: `renderer`, `post`, `lights`, `camera`, `bench`. `hud`, `flame`, `blade`, `pickups`, `fx` and `hero` get added by their own tickets via `section(name, values, ranges)`.
+- The dev panel (`dev-panel.ts`, lil-gui) and the frame-time readout are dynamically imported under `import.meta.env.DEV`. `tests/unit/build-output.test.ts` makes a production build and asserts both are absent.
+- `tests/e2e/render-foundation.spec.ts` covers the renderer config and the rig guard (baseline: 7 lights). I checked that the guard test fails when a pool light's `visible` is toggled.
+- The scaffold scene is now a 40×15 instanced greybox (v2's map size) with the capsule hero mid-map. The pool slots sit on four tiles around the hero for the bench. The key light's shadow frustum is fitted to the map (2048²).
+- `pnpm assets:build` runs every `blender/scripts/build_*.py`. A builder registers just by following that naming pattern.
+- **Light bench, agent measurement.** Setup: Apple M3, Chromium via Playwright, ANGLE Metal, 1920×1080, DPR 1, bloom on, 10 s windows. Frame time is the rAF delta.
+  - Headless, 4 pools at peak: `{"frames":600,"meanMs":16.67,"p95Ms":16.7,"worstMs":16.8,"over33":0}`. Idle pools gave identical numbers.
+  - Headed, 4 pools at peak: `{"frames":600,"meanMs":16.67,"p95Ms":17.5,"worstMs":17.8,"over33":0}`. Idle pools gave the same p95 of 17.5, so the miss comes from rAF timing jitter at the 60 Hz vsync cap, not from light cost.
+  - Both runs are vsync-locked, so they show headroom but not GPU time. For the human: a rAF-delta p95 can sit just above 16.7 ms from jitter alone. Compare bench on against bench off rather than treating 16.7 as a hard line. The human's MacBook run and the pass/fallback decision are still open.
