@@ -1,0 +1,54 @@
+/**
+ * Dev-only `window.__game.sim` (spec: Dev tooling): the handle e2e drives the game with.
+ * Only ever loaded through an `import.meta.env.DEV`-guarded dynamic import, so it never
+ * reaches the production bundle.
+ *
+ * - `snapshot()`: read-only state (hero tile, facing, machine state, level time, …).
+ * - `press(dir)` / `release(dir)` dispatch real `keydown` / `keyup` events on the window,
+ *   so they take the same path as the keyboard (`@game/keyboard` → grid input).
+ * - `pause()` stops the rAF-driven advance; `advance(ms)` runs `ceil(ms / tick)` ticks
+ *   directly (bypassing the frame clamp), then one render. `resume()` undoes `pause()`.
+ * - `hazardsOff(bool)`: hazards ignore the hero (a no-op until ticket 07).
+ */
+import type { Dir } from '@core/grid-input';
+import type { FixedLoop } from './loop';
+import type { Sim, SimSnapshot } from './sim';
+
+/** The key each direction's `press` sends (one per direction; arrows, as a player would). */
+const DIR_CODES: Readonly<Record<Dir, string>> = {
+  north: 'ArrowUp',
+  east: 'ArrowRight',
+  south: 'ArrowDown',
+  west: 'ArrowLeft',
+};
+
+export interface DevSim {
+  snapshot(): SimSnapshot & { paused: boolean };
+  press(dir: Dir): void;
+  release(dir: Dir): void;
+  pause(): void;
+  resume(): void;
+  advance(ms: number): void;
+  hazardsOff(off: boolean): void;
+}
+
+export function createDevSim(sim: Sim, loop: FixedLoop, target: EventTarget = window): DevSim {
+  const send = (type: 'keydown' | 'keyup', dir: Dir) => {
+    target.dispatchEvent(new KeyboardEvent(type, { code: DIR_CODES[dir], cancelable: true }));
+  };
+  return {
+    snapshot: () => ({ ...sim.snapshot(), paused: loop.paused }),
+    press: (dir) => send('keydown', dir),
+    release: (dir) => send('keyup', dir),
+    pause() {
+      loop.paused = true;
+    },
+    resume() {
+      loop.paused = false;
+    },
+    advance: (ms) => loop.step(ms),
+    hazardsOff(off) {
+      sim.ignoreHazards = off;
+    },
+  };
+}

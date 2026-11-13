@@ -11,7 +11,7 @@ const outDir = mkdtempSync(join(tmpdir(), 'doom-maze-build-'));
 afterAll(() => rmSync(outDir, { recursive: true, force: true }));
 
 describe('production build', () => {
-  it('ships neither the dev panel nor the frame-time readout', async () => {
+  it('ships neither the dev panel, the frame-time readout nor __game.sim', async () => {
     // Vitest sets NODE_ENV=test, which makes Vite's import.meta.env.DEV true; build as `pnpm build` does.
     const nodeEnv = process.env['NODE_ENV'];
     process.env['NODE_ENV'] = 'production';
@@ -30,7 +30,7 @@ describe('production build', () => {
       .map((f) => readFileSync(join(outDir, 'assets', f), 'utf8'))
       .join('\n');
     expect(js).toContain('EffectComposer'); // sanity: the real bundle was read
-    for (const devOnly of ['lil-gui', 'devReadout', 'log summary', '__game']) {
+    for (const devOnly of ['lil-gui', 'devReadout', 'log summary', '__game', 'hazardsOff']) {
       expect(js).not.toContain(devOnly);
     }
   }, 60_000);

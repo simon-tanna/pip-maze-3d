@@ -1,22 +1,19 @@
-import {
-  CapsuleGeometry,
-  Mesh,
-  MeshStandardMaterial,
-  PerspectiveCamera,
-  Scene,
-  Timer,
-} from 'three';
+import { PerspectiveCamera, Scene, Timer } from 'three';
 import type { Light } from 'three';
 import { loadGltf } from '@assets/models';
 import { planChamber } from '@core/chamber-plan';
 import { generateLevel } from '@core/generator';
 import { mazeBounds, tileToWorld } from '@core/grid';
-import { startTile } from '@core/level';
 import { resolveRun } from '@core/run-seed';
+import { bindKeyboard } from '@game/keyboard';
 import { createFixedLoop } from '@game/loop';
+import { createSim } from '@game/sim';
+import { createGameState } from '@game/state';
+import { createCameraRig } from '@render/camera-rig';
 import { createChamberView } from '@render/chamber';
 import { CHAMBER_KIT } from '@render/chamber-kit';
 import { createFrameStats } from '@render/frame-stats';
+import { createHeroView } from '@render/hero';
 import { createLightRig, createPaletteEnvironment } from '@render/lights';
 import { look } from '@render/look';
 import { LIGHT, P, color } from '@render/palette';
@@ -46,14 +43,16 @@ function drawSeed(): number {
 }
 
 /**
- * Boot: the run's first level built as a chamber on the placeholder kit, under the fixed
- * light rig and post chain, seen from the slice camera, with a capsule on the start tile
- * standing in for the hero.
+ * Boot: the state machine walks `loading → building → entering → playing` (instant
+ * transitions until ticket 06). The run's first level is built as a chamber on the
+ * placeholder kit, under the fixed light rig and post chain, and a capsule hero walks it
+ * on the grid with the arrows or WASD while the chase camera follows.
  */
 async function boot(): Promise<void> {
   const container = document.getElementById('game');
   if (!container) throw new Error('#game container missing from index.html');
   paletteToCss();
+  const machine = createGameState();
 
   const scene = new Scene();
   scene.background = color('INK');
@@ -71,25 +70,24 @@ async function boot(): Promise<void> {
   console.info(
     `[run] base seed ${run.base}${run.pinned ? ' (pinned)' : ''}; level ${run.level}, seed ${run.seed}`,
   );
-  const level = generateLevel(run.level, run.seed);
+  const kit = await loadGltf(CHAMBER_KIT);
 
-  const chamber = createChamberView(await loadGltf(CHAMBER_KIT));
+  machine.go('building');
+  const level = generateLevel(run.level, run.seed);
+  const chamber = createChamberView(kit);
   chamber.build(planChamber(level, run.seed));
   scene.add(chamber.group);
   const cols = level.map[0]?.length ?? 0;
   rig.fitShadowTo(mazeBounds(cols, level.map.length)); // the map, not the padding
 
-  const start = startTile(level.map);
-  const heroTile = tileToWorld(start.col, start.row);
-  const hero = new Mesh(
-    new CapsuleGeometry(0.4, 0.7, 4, 12),
-    new MeshStandardMaterial({ color: color('HERO_COAT'), roughness: 0.8 }),
-  );
-  hero.position.set(heroTile.x, 0.75, heroTile.z);
-  hero.castShadow = true;
-  scene.add(hero);
+  const sim = createSim({ map: level.map, machine });
+  const hero = createHeroView();
+  scene.add(hero.object);
+  const cameraRig = createCameraRig(camera);
+  cameraRig.resetLag();
 
-  // Light bench: the 4 pool slots sit around the hero, in view.
+  // Light bench: the 4 pool slots sit around the start tile, in view.
+  const start = sim.snapshot().tile;
   rig.pools.forEach((pool, i) => {
     const [dc, dr] = (
       [
@@ -103,35 +101,26 @@ async function boot(): Promise<void> {
     pool.position.set(x, look.lights.poolHeight, z);
   });
 
-  const placeCamera = () => {
-    camera.fov = cam.fov;
-    camera.position.set(hero.position.x, cam.up, hero.position.z + cam.back);
-    camera.lookAt(hero.position.x, 0, hero.position.z - cam.lead);
-    camera.updateProjectionMatrix();
-  };
-
-  const frame = () => {
+  const frame = (alpha: number) => {
+    const timeMs = sim.timeAt(alpha);
+    const at = sim.heroPosition(alpha);
+    const { facing } = sim.snapshot();
+    hero.update(at, facing, timeMs);
+    cameraRig.update(at, facing, timeMs);
     scene.environmentIntensity = look.lights.envIntensity;
     chamber.update();
-    rig.update({ hero: hero.position, poolsAtPeak: look.bench.poolsAtPeak });
-    placeCamera();
+    rig.update({ hero: hero.object.position, poolsAtPeak: look.bench.poolsAtPeak });
     view.render();
   };
 
   // Compile every program with the full, fixed rig before the first frame.
-  frame();
+  frame(0);
   await renderer.compileAsync(scene, camera);
 
-  let t = 0;
-  const loop = createFixedLoop({
-    update(dt) {
-      t += dt;
-      hero.rotation.y = t * 0.8;
-    },
-    render() {
-      frame();
-    },
-  });
+  const loop = createFixedLoop({ update: () => sim.update(), render: frame });
+  bindKeyboard(window, sim.input);
+  machine.go('entering'); // the hazard clock starts
+  machine.go('playing'); // input unlocks
 
   const guard = createRigGuard(
     { lights: () => countLiveLights(scene), programs: () => renderer.info.programs?.length ?? 0 },
@@ -158,6 +147,7 @@ async function boot(): Promise<void> {
 
   if (import.meta.env.DEV && stats) {
     const { mountDevTools } = await import('@render/dev-panel');
+    const { createDevSim } = await import('@game/dev-sim');
     mountDevTools(stats);
     Object.assign(window, {
       __game: {
@@ -173,6 +163,9 @@ async function boot(): Promise<void> {
         run,
         level,
         chamber,
+        hero: hero.object,
+        cameraRig,
+        sim: createDevSim(sim, loop),
       },
     });
   }
