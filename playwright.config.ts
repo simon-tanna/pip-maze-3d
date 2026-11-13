@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+/** `DEV_PORT` (default 5180) runs e2e against this checkout's own dev server. */
+const url = `http://localhost:${process.env['DEV_PORT'] ?? 5180}`;
+
 export default defineConfig({
   testDir: 'tests/e2e',
   fullyParallel: true,
@@ -7,7 +10,7 @@ export default defineConfig({
   timeout: 60_000,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:5180',
+    baseURL: url,
     trace: 'on-first-retry',
   },
   projects: [
@@ -22,7 +25,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'pnpm dev',
-    url: 'http://localhost:5180',
+    url,
     reuseExistingServer: !process.env['CI'],
   },
 });

@@ -2,6 +2,7 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
+const port = Number(process.env['DEV_PORT'] ?? 5180);
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
 export default defineConfig({
@@ -15,8 +16,9 @@ export default defineConfig({
     },
   },
   // 8080 is pip-maze-v-2's dev port; strictPort so Playwright never attaches to the wrong game.
-  server: { port: 5180, strictPort: true },
-  preview: { port: 5180, strictPort: true },
+  // DEV_PORT moves it (parallel worktrees each run their own e2e server).
+  server: { port, strictPort: true },
+  preview: { port, strictPort: true },
   build: {
     target: 'es2023',
     // three.js alone is ~620 kB minified; it lives in its own long-cached chunk.
