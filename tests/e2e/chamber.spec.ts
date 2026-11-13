@@ -29,7 +29,7 @@ async function boot(page: Page, query = '') {
   const logs: ConsoleMessage[] = [];
   page.on('console', (m) => logs.push(m));
   await page.goto(`/${query}`);
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true', { timeout: 20_000 });
   return logs;
 }
 

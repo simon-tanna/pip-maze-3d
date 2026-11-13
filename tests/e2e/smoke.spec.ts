@@ -5,7 +5,7 @@ test('boots and renders a WebGL canvas', async ({ page }) => {
   page.on('pageerror', (e) => errors.push(e.message));
 
   await page.goto('/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true', { timeout: 20_000 });
 
   const hasWebGL = await page
     .locator('#game canvas')

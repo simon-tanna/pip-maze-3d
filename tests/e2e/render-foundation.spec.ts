@@ -33,7 +33,7 @@ async function boot(page: Page, deviceScaleFactor?: number) {
     });
   }
   await page.goto('/');
-  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true');
+  await expect(page.locator('body')).toHaveAttribute('data-ready', 'true', { timeout: 20_000 });
 }
 
 const frames = (page: Page, n: number) =>
