@@ -27,5 +27,20 @@ export default tseslint.config(
       'no-restricted-globals': ['error', 'window', 'document', 'localStorage'],
     },
   },
+  {
+    // src/game orchestrates through interfaces it declares; main.ts wires render/ui in.
+    files: ['src/game/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['three', 'three/*'], message: 'src/game must stay three.js-free.' },
+            { group: ['@render/*', '@ui/*'], message: 'src/game may not import render or ui.' },
+          ],
+        },
+      ],
+    },
+  },
   prettier,
 );
