@@ -102,6 +102,8 @@ export interface Sim {
   dropKey(): boolean;
   /** Whether key `index` stands in the level (for the pickup view). */
   keyVisible(index: number): boolean;
+  /** Whether coin `index` is still in the level. */
+  coinVisible(index: number): boolean;
 }
 
 const NO_PICKUPS: PickupLayout = { coins: [], key: { col: -1, row: -1 }, key2: null };
@@ -251,5 +253,6 @@ export function createSim({
       return losses.length > 0;
     },
     keyVisible: (index) => pickups.keyVisible(index),
+    coinVisible: (index) => pickups.coinVisible(index),
   };
 }

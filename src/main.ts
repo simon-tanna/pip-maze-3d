@@ -1,5 +1,6 @@
-import { PerspectiveCamera, Scene, Timer } from 'three';
-import type { Light } from 'three';
+import { PerspectiveCamera, Scene, Timer, Vector3 } from 'three';
+import type { Camera, Light } from 'three';
+import type { WorldXZ } from '@core/grid';
 import { loadGltf } from '@assets/models';
 import { planChamber } from '@core/chamber-plan';
 import { generateLevel } from '@core/generator';
@@ -7,7 +8,7 @@ import { mazeBounds, tileToWorld } from '@core/grid';
 import { resolveRun } from '@core/run-seed';
 import { bindKeyboard } from '@game/keyboard';
 import { createFixedLoop } from '@game/loop';
-import { createSim } from '@game/sim';
+import { createSession, createSim } from '@game/sim';
 import { createGameState } from '@game/state';
 import { createCameraRig } from '@render/camera-rig';
 import { createChamberView } from '@render/chamber';
@@ -15,10 +16,12 @@ import { CHAMBER_KIT } from '@render/chamber-kit';
 import { createFrameStats } from '@render/frame-stats';
 import { createHeroView } from '@render/hero';
 import { createLightRig, createPaletteEnvironment } from '@render/lights';
+import { createPickupsView } from '@render/pickups';
 import { look } from '@render/look';
 import { LIGHT, P, color } from '@render/palette';
 import { createRenderer } from '@render/renderer';
 import { createRigGuard } from '@render/rig-guard';
+import { createHud } from '@ui/hud';
 import './style.css';
 
 /** Expose every palette colour to CSS as `--kebab-name` (e.g. `--ink`, `--gold-light`). */
@@ -36,6 +39,22 @@ function countLiveLights(scene: Scene): number {
   });
   return n;
 }
+
+/**
+ * World → CSS pixels for the HUD (`src/ui` never imports three.js). Pickups float at
+ * `look.pickups.floatHeight`. Null when the point is outside the view volume.
+ */
+function createProjector(camera: Camera, canvas: HTMLElement) {
+  const v = new Vector3();
+  return (world: WorldXZ) => {
+    v.set(world.x, look.pickups.floatHeight, world.z).project(camera);
+    if (Math.abs(v.x) > 1 || Math.abs(v.y) > 1 || Math.abs(v.z) > 1) return null;
+    const r = canvas.getBoundingClientRect();
+    return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
+  };
+}
+
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 /** A fresh uint32 base seed. Never `Math.random`: level seeds must stay replayable. */
 function drawSeed(): number {
@@ -80,7 +99,28 @@ async function boot(): Promise<void> {
   const cols = level.map[0]?.length ?? 0;
   rig.fitShadowTo(mazeBounds(cols, level.map.length)); // the map, not the padding
 
-  const sim = createSim({ map: level.map, machine });
+  const session = createSession();
+  const sim = createSim({ map: level.map, machine, pickups: level, session });
+  const pickups = createPickupsView();
+  pickups.build(level);
+  scene.add(pickups.group);
+
+  const hudRoot = document.getElementById('hud');
+  if (!hudRoot) throw new Error('#hud missing from index.html');
+  const hud = createHud({
+    root: hudRoot,
+    now: () => sim.snapshot().simMs,
+    project: createProjector(camera, renderer.domElement),
+    keys: () => sim.snapshot().keys,
+    timing: look.hud,
+    reducedMotion: () => reducedMotion.matches,
+    coins: session.coins,
+  });
+  hud.level({ index: run.level, requiredKeys: sim.snapshot().requiredKeys });
+  sim.on('coin', (e) => hud.coin(e));
+  sim.on('key', (e) => hud.key(e));
+  sim.on('keyLost', () => hud.keyLost());
+  sim.on('chestLocked', () => hud.toast('Find the key first!'));
   const hero = createHeroView();
   scene.add(hero.object);
   const cameraRig = createCameraRig(camera);
@@ -109,6 +149,8 @@ async function boot(): Promise<void> {
     cameraRig.update(at, facing, timeMs);
     scene.environmentIntensity = look.lights.envIntensity;
     chamber.update();
+    pickups.update(sim);
+    hud.update(timeMs);
     rig.update({ hero: hero.object.position, poolsAtPeak: look.bench.poolsAtPeak });
     view.render();
   };
@@ -163,6 +205,7 @@ async function boot(): Promise<void> {
         run,
         level,
         chamber,
+        pickups: pickups.group,
         hero: hero.object,
         cameraRig,
         sim: createDevSim(sim, loop),

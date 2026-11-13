@@ -78,6 +78,7 @@ describe('pickups on landing', () => {
     expect(events[2]?.tile).toEqual({ col: 2, row: 1 });
     expect(sim.snapshot().coins).toBe(1);
     expect(session.coins).toBe(1);
+    expect(sim.coinVisible(0)).toBe(false);
     sim.input.press('west'); // back over the start and onto the coin tile again
     sim.input.release('west');
     while (sim.snapshot().moving) sim.update();

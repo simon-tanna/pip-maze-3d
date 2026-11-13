@@ -8,7 +8,9 @@ import { bench } from './bench';
 import { camera } from './camera';
 import { chamber } from './chamber';
 import { hero } from './hero';
+import { hud } from './hud';
 import { lights } from './lights';
+import { pickups } from './pickups';
 import { post } from './post';
 import { lookRegistry } from './registry';
 import { renderer } from './renderer';
@@ -23,6 +25,8 @@ export const look = {
   camera,
   chamber,
   hero,
+  pickups,
+  hud,
   bench,
 };
 

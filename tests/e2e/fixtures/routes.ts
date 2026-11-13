@@ -36,6 +36,8 @@ export interface Route {
   /** A direction that is a wall from the start tile. */
   wallFromStart: Dir;
   legs: readonly Leg[];
+  /** From the coin leg's end to the chest without the key (the locked-chest toast). */
+  chestWithoutKey?: { moves: readonly Move[]; hazards: readonly string[] };
 }
 
 /** The run's pinned base seed. Level 1's seed is `levelSeed(BASE_SEED, 1)`. */
@@ -83,6 +85,23 @@ export const LEVEL_0: Route = {
       hazards: ['blade@24,1'],
     },
   ],
+  chestWithoutKey: {
+    moves: [
+      ['west', 1],
+      ['south', 8],
+      ['west', 2],
+      ['south', 2],
+      ['east', 6],
+      ['south', 2],
+      ['east', 12],
+      ['north', 2],
+      ['east', 2],
+      ['north', 10],
+      ['east', 14],
+      ['south', 7],
+    ],
+    hazards: ['blade@24,1'],
+  },
 };
 
 /** Level 1 of the pinned run (seed `levelSeed(42, 1)`). */

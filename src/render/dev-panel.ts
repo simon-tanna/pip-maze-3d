@@ -13,6 +13,7 @@ import { css } from './palette';
  */
 export function mountDevTools(stats: FrameStats): { gui: GUI } {
   const gui = new GUI({ title: 'look' });
+  gui.domElement.style.top = '72px'; // below the HUD's key slots
   for (const { name, values, ranges } of lookSections()) {
     const folder = gui.addFolder(name);
     for (const key of Object.keys(values)) {
