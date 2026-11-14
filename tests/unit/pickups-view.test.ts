@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Object3D } from 'three';
+import type { Mesh, Object3D } from 'three';
 import { tileToWorld } from '@core/grid';
 import { look } from '@render/look';
 import { createPickupsView } from '@render/pickups';
@@ -46,6 +46,28 @@ describe('pickups view (greybox)', () => {
     const view = createPickupsView();
     view.build({ ...LAYOUT, key2: null });
     expect(view.group.getObjectByName('key_1')).toBeUndefined();
+  });
+
+  it('openChest() snaps the lid open; the next build shuts it again', () => {
+    const view = createPickupsView();
+    view.build(LAYOUT);
+    const lid = named(view.group, 'chest_lid');
+    expect(lid.rotation.x).toBe(0);
+    view.openChest();
+    expect(Math.abs(lid.rotation.x)).toBeGreaterThan(1.5);
+    view.build(LAYOUT);
+    expect(named(view.group, 'chest_lid').rotation.x).toBe(0);
+  });
+
+  it('teardown() empties the group without disposing shared geometry', () => {
+    const view = createPickupsView();
+    view.build(LAYOUT);
+    const geometry = (named(view.group, 'coin_0') as Mesh).geometry;
+    let disposed = false;
+    geometry.addEventListener('dispose', () => (disposed = true));
+    view.teardown();
+    expect(view.group.children).toHaveLength(0);
+    expect(disposed).toBe(false);
   });
 
   it('rebuilding drops the previous level’s pickups', () => {

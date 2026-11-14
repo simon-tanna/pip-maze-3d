@@ -19,7 +19,11 @@ const goldDark = new MeshStandardMaterial({
 });
 const COIN = new CylinderGeometry(0.2, 0.2, 0.06, 16).rotateX(Math.PI / 2);
 const KEY = new BoxGeometry(0.6, 0.14, 0.14);
-const CHEST = new BoxGeometry(1.2, 0.8, 0.8).translate(0, 0.4, 0);
+const CHEST = new BoxGeometry(1.2, 0.6, 0.8).translate(0, 0.3, 0);
+/** The lid, hinged on the chest's back (north) edge: its pivot sits at the hinge. */
+const LID = new BoxGeometry(1.2, 0.2, 0.8).translate(0, 0.1, 0.4);
+/** Placeholder open angle (ticket 14 animates the swing to ~110°). */
+const LID_OPEN = (-110 * Math.PI) / 180;
 
 export interface PickupsLayout {
   coins: readonly GridTile[];
@@ -39,6 +43,10 @@ export interface PickupsView {
   /** Build a level's pickups, replacing the last level's. */
   build(layout: PickupsLayout): void;
   update(state: PickupsState): void;
+  /** `chestOpened`: the lid snaps open (placeholder; ticket 14 owns the full moment). */
+  openChest(): void;
+  /** Drop this level's pickups. Geometry and materials are shared, so nothing is disposed. */
+  teardown(): void;
 }
 
 export function createPickupsView(): PickupsView {
@@ -46,6 +54,7 @@ export function createPickupsView(): PickupsView {
   group.name = 'pickups';
   let coins: Mesh[] = [];
   let keys: Mesh[] = [];
+  let lid: Mesh | null = null;
 
   const at = (mesh: Mesh, tile: GridTile, y: number) => {
     const { x, z } = tileToWorld(tile.col, tile.row);
@@ -57,7 +66,7 @@ export function createPickupsView(): PickupsView {
   return {
     group,
     build(layout) {
-      group.clear();
+      this.teardown();
       const lift = look.pickups.floatHeight + 0.2;
       coins = layout.coins.map((tile, i) => {
         const m = at(new Mesh(COIN, gold), tile, lift);
@@ -72,7 +81,21 @@ export function createPickupsView(): PickupsView {
       const chest = at(new Mesh(CHEST, goldDark), { col: layout.exitCol, row: layout.exitRow }, 0);
       chest.name = 'chest';
       chest.receiveShadow = true;
+      lid = new Mesh(LID, goldDark);
+      lid.name = 'chest_lid';
+      lid.position.set(0, 0.6, -0.4);
+      lid.castShadow = true;
+      chest.add(lid);
       group.add(...coins, ...keys, chest);
+    },
+    openChest() {
+      if (lid) lid.rotation.x = LID_OPEN;
+    },
+    teardown() {
+      group.clear();
+      coins = [];
+      keys = [];
+      lid = null;
     },
     update(state) {
       coins.forEach((m, i) => (m.visible = state.coinVisible(i)));
