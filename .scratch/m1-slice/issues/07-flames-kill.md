@@ -15,11 +15,17 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 
 **Status:** ready-for-agent
 
-- [ ] Unit tests: flame states over a full cycle; every flame is off for t < phase; seeded phases match v2's derivation; the go-live re-check kills a hero standing on the tile; grace and `dying` block kills; grace ending in a live flame doesn't kill
-- [ ] Unit tests: death timers (270 / 530 ms), key loss (including the key-2 hide on a synthetic two-key level), and coins unchanged by death
-- [ ] Unit tests: a death and a chest landing on the same tick resolve as death (hazards before pickups, as in v2); a go-live during `leaving` doesn't kill
-- [ ] e2e on the shared fixture: step onto a known flame while `on` → hero back on the start tile, key restored to its tile, coins unchanged, input locked until 530 ms, then a held direction walks
-- [ ] The light-count and program-count guard from ticket 02 holds across a death-and-grace cycle
-- [ ] The renderer program-cache-key check from ticket 06 still holds with flames present
-- [ ] The 04–06 e2e tests stay green (with `hazardsOff` where their routes cross a flame)
-- [ ] `pnpm check` and `pnpm test:e2e` pass
+- [x] Unit tests: flame states over a full cycle; every flame is off for t < phase; seeded phases match v2's derivation; the go-live re-check kills a hero standing on the tile; grace and `dying` block kills; grace ending in a live flame doesn't kill
+- [x] Unit tests: death timers (270 / 530 ms), key loss (including the key-2 hide on a synthetic two-key level), and coins unchanged by death
+- [x] Unit tests: a death and a chest landing on the same tick resolve as death (hazards before pickups, as in v2); a go-live during `leaving` doesn't kill
+- [x] e2e on the shared fixture: step onto a known flame while `on` → hero back on the start tile, key restored to its tile, coins unchanged, input locked until 530 ms, then a held direction walks
+- [x] The light-count and program-count guard from ticket 02 holds across a death-and-grace cycle
+- [x] The renderer program-cache-key check from ticket 06 still holds with flames present
+- [x] The 04–06 e2e tests stay green (with `hazardsOff` where their routes cross a flame)
+- [x] `pnpm check` and `pnpm test:e2e` pass
+
+## Comments
+
+- Implemented on `ticket/07-flames-kill`. Core: `@core/hazards` (`HAZARD_TIMING` flame half, `FLAME_CYCLE`, `flameState(t, phase)`, `flamePhase(seed, tile)` = v2's `hazardPhase`, `levelFlames(traps, seed)`). Sim: kills on landing (before pickups) and on go-live, only while `playing`, never while `dying`/grace/`ignoreHazards`; `DEATH_TIMING` 270 / 530 / 1000 ms; events `hazardLive`, `died`, `respawned` (plus 05's `keyLost`/`keyHidden`); snapshot `dying`, `grace`; `sim.flames()`. `heroPosition` holds the death spot until `gone`, and main resets the camera lag on `respawned` (the cut).
+- Greybox view `@render/flames` (columns coloured by state from 3 shared `MeshStandardMaterial`s, `look.flame`), registered with the per-level teardown. Dev overlay: press `G` (BLOOD slab on lethal tiles).
+- e2e `flames-kill.spec.ts` dies on level 0's flame at (19,7) after the key leg. `hero-walks.spec.ts` now uses `hazardsOff(true)`.
