@@ -19,7 +19,7 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 - [x] No colour literals in the bpy code; colours come only from the palette
 - [x] Game-camera screenshots of the shared fixture's seed are linked on this ticket
 - [ ] Human sign-off (a dated line under `## Comments`) against ADR 0001's colour reservations and "floor is the darkest surface" rule. Not needed for agent-complete
-- [ ] `pnpm check` and `pnpm test:e2e` pass
+- [x] `pnpm check` and `pnpm test:e2e` pass
 
 ## Comments
 
