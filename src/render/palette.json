@@ -1,5 +1,5 @@
 {
-  "$comment": "Torchlit Sandstone (v2 src/game/lib/palette.js), the only place a colour literal may live. sRGB hex. Ramps run dark to light. Reservations: fire ramp for hazards and telegraphs only, gold for pickups only, curse teal for mummies only, steel for blades and spikes only, HERO_* for the hero only. LIGHT values are either hex or the name of a P colour. HERO_* starting values are sampled from docs/art/pip-concept.png.",
+  "$comment": "Torchlit Sandstone (v2 src/game/lib/palette.js), the only place a colour literal may live. sRGB hex. Ramps run dark to light. Reservations: fire ramp for hazards and telegraphs only, gold for pickups only, curse teal for mummies only, steel for blades and spikes only, HERO_* for the hero only. LIGHT values are either hex or the name of a P colour. HERO_* starting values are sampled from docs/art/pip-concept.png; HERO_EYE and HERO_PUPIL (ticket 11) are the concept's eye whites and pupils. Ticket 11 moved HERO_HAT and HERO_HAT_BAND darker and greener so the hat reads olive under the warm key and torch, and HERO_COAT a little bluer, off STEEL_DARK.",
   "P": {
     "INK": "#0e0a0c",
     "SHADOW": "#1c1418",
@@ -40,16 +40,18 @@
     "BLOOD": "#b3241d",
     "CREAM": "#f3e4c4",
 
-    "HERO_HAT": "#706a3d",
-    "HERO_HAT_BAND": "#504d31",
-    "HERO_COAT": "#3f415c",
+    "HERO_HAT": "#5c6136",
+    "HERO_HAT_BAND": "#44462b",
+    "HERO_COAT": "#3d4262",
     "HERO_COAT_DARK": "#2e2f44",
     "HERO_SKIN": "#e3a27b",
     "HERO_HAIR": "#5a3c2e",
     "HERO_LEATHER": "#774c36",
     "HERO_BOOT": "#4d3329",
     "HERO_GLOVE": "#262725",
-    "HERO_SCAR": "#9f2223"
+    "HERO_SCAR": "#9f2223",
+    "HERO_EYE": "#e8dfd8",
+    "HERO_PUPIL": "#191814"
   },
   "LIGHT": {
     "AMBIENT": "#9a8890",

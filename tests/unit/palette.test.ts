@@ -39,6 +39,28 @@ describe('palette', () => {
     expect(Math.abs(hue('HERO_HAT') - hue('MOSS'))).toBeGreaterThan(25);
   });
 
+  it('keeps every HERO_* colour off the fire, gold, curse and steel reservations', () => {
+    const reserved = (Object.keys(P) as ColorName[]).filter((k) =>
+      /^(EMBER|FIRE|GOLD|CURSE|STEEL)/.test(k),
+    );
+    const heroKeys = (Object.keys(P) as ColorName[]).filter((k) => k.startsWith('HERO_'));
+    for (const hero of heroKeys) {
+      for (const signal of reserved) {
+        const a = color(hero).convertLinearToSRGB();
+        const b = color(signal).convertLinearToSRGB();
+        const d = Math.hypot(a.r - b.r, a.g - b.g, a.b - b.b);
+        expect(d, `${hero} vs ${signal}`).toBeGreaterThan(0.08);
+      }
+    }
+  });
+
+  it('gives Pip white eyes and dark pupils of his own (ticket 11)', () => {
+    const l = (name: ColorName) => color(name).getHSL({ h: 0, s: 0, l: 0 }).l;
+    expect(l('HERO_EYE')).toBeGreaterThan(0.6);
+    expect(l('HERO_PUPIL')).toBeLessThan(0.02);
+    expect(P.HERO_EYE).not.toBe(P.CREAM);
+  });
+
   it('color() returns linear RGB and css() the sRGB hex', () => {
     const c = color('SAND');
     expect(c.getHexString()).toBe('d8b98a'); // round-trips through sRGB

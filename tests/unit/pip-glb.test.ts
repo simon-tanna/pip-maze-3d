@@ -62,6 +62,53 @@ describe('Pip GLB', () => {
     }
   });
 
+  // Frozen by ticket 11 for ticket 15: renaming a bone or a slot breaks this on purpose.
+  it('keeps the frozen bone layout (parent of each bone)', () => {
+    const parents = Object.fromEntries(
+      all<Bone>(gltf.scene, (o) => (o as Bone).isBone).map((b) => [
+        b.name,
+        (b.parent as Bone | null)?.isBone ? b.parent?.name : null,
+      ]),
+    );
+    expect(parents).toEqual({
+      root: null,
+      hips: 'root',
+      spine: 'hips',
+      head: 'spine',
+      hat: 'head',
+      arm_L: 'spine',
+      hand_L: 'arm_L',
+      arm_R: 'spine',
+      hand_R: 'arm_R',
+      leg_L: 'root',
+      foot_L: 'leg_L',
+      leg_R: 'root',
+      foot_R: 'leg_R',
+    });
+  });
+
+  it('keeps the frozen material slot names', () => {
+    const names = new Set<string>();
+    for (const m of all<Mesh>(gltf.scene, (o) => (o as Mesh).isMesh)) {
+      const mats = Array.isArray(m.material) ? m.material : [m.material];
+      for (const mat of mats as Material[]) names.add(mat.name);
+    }
+    expect([...names].sort()).toEqual([
+      'HERO_BOOT',
+      'HERO_COAT',
+      'HERO_COAT_DARK',
+      'HERO_EYE',
+      'HERO_GLOVE',
+      'HERO_HAIR',
+      'HERO_HAT',
+      'HERO_HAT_BAND',
+      'HERO_LEATHER',
+      'HERO_PUPIL',
+      'HERO_SCAR',
+      'HERO_SKIN',
+    ]);
+  });
+
   it('stands about 1.5 m tall on its origin, inside a 1.2 m footprint, facing +z', () => {
     gltf.scene.updateMatrixWorld(true);
     const box = new Box3().setFromObject(gltf.scene, true);

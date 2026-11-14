@@ -23,7 +23,8 @@
     "assets:export": "./blender/blender.sh --background --python blender/scripts/export_all.py",
     "assets:placeholders": "./blender/blender.sh --background --factory-startup --python blender/scripts/build_placeholders.py",
     "assets:build": "./blender/blender.sh --background --factory-startup --python-exit-code 1 --python blender/scripts/build_all.py",
-    "assets:test": "./blender/blender.sh --background --factory-startup --python-exit-code 1 --python blender/scripts/test_skinned_export.py"
+    "assets:test": "./blender/blender.sh --background --factory-startup --python-exit-code 1 --python blender/scripts/test_skinned_export.py --python blender/scripts/test_render_pip.py",
+    "assets:render": "./blender/blender.sh --background --factory-startup --python-exit-code 1 --python blender/scripts/render_pip.py --"
   },
   "dependencies": {
     "three": "0.187.0"

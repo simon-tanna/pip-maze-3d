@@ -21,7 +21,7 @@ export const lights = section(
     torchDistance: 9,
     torchHeight: 1.6,
     /** Metres in front of the hero (south, toward the camera). */
-    torchLeadSouth: 0.5,
+    torchLeadSouth: 0.9,
     /** Fixed slot count; ticket 02's light bench confirms it. Not tunable at runtime. */
     poolSlots: 4,
     poolIntensity: 8,
