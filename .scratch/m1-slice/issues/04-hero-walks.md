@@ -15,7 +15,7 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `stepPosition` unit tests: endpoints, constant speed, and progress clamped to 0–1
 - [x] Step timing unit test: 10 chained held steps take 1200 ms ± 1 tick
@@ -29,3 +29,5 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 ## Comments
 
 - 2026-11-14 (agent, branch `ticket/04-hero-walks`): Done. `@core/step` (`stepPosition`, `STEP_MS`), `@core/grid-input` (pure port; `Dir` is `north|east|south|west`), `@game/keyboard` (DOM binding), `@game/sim` (`createSim({ map, machine })`, emits `step`/`landed`), `@game/state` (minimal machine), `@render/camera-rig`, `@render/hero`, `look.hero.turnMs`. Camera lag and hero turns run on render-time sim ms (`sim.timeAt(alpha)`), so `pause`/`advance` are deterministic. Shared fixture: `tests/e2e/fixtures/{routes,game}.ts`, base seed 42; `tests/unit/e2e-routes.test.ts` replays both routes on the real sim. Added the spec's ESLint rule (`src/game` may not import three, `@render`, `@ui`) and raised Playwright's per-test timeout to 60 s (the double-boot chamber spec timed out at 30 s on `main` too).
+
+- 2026-11-14: Resolved. Merged into `main` (milestone-1 greybox spine, tickets 01–08); a code-review fix pass followed (`fix/code-review`, adc9908). On `main`: `pnpm check` (261 unit tests) and `pnpm test:e2e` (35/35) pass.

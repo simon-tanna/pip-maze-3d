@@ -14,7 +14,7 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 - [x] No hex or RGB colour literal remains outside the palette JSON, in TS or Python (the scaffold's literals are gone)
 - [x] Feel values appear only in the look module, and the dev panel and readout are absent from `pnpm build` output
@@ -41,3 +41,5 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
   - Both runs are vsync-locked, so they show headroom but not GPU time. For the human: a rAF-delta p95 can sit just above 16.7 ms from jitter alone. Compare bench on against bench off rather than treating 16.7 as a hard line. The human's MacBook run and the pass/fallback decision are still open.
 
 - 2026-11-14: **DPR cap lowered from 2 to 1** (human decision, branch `fix/frame-time`). In real Chrome on the M3, a Retina (DPR 2) screen ran at a 51 ms mean and p95 84 ms: the 4× MSAA HalfFloat target and bloom are fill-bound at 4× the pixels. With the cap at 1 it runs at a 16.6 ms mean and p95 17.3 ms. The agent measurement above was at DPR 1, so it never showed this.
+
+- 2026-11-14: Agent-complete and merged into `main`. One box is open: the light bench on the human's MacBook. Batch it with ticket 17's sign-offs. Set this ticket to `resolved` once the summary is recorded.

@@ -14,7 +14,7 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 
 **Blocked by:** 05
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Unit tests for `state.ts` transitions, including `ended` and `failed`, with fake `ChamberView` / `Transition` implementations
 - [x] e2e on the shared fixture: collect the key, reach the chest, observe `sim` machine state pass through leaving → building → entering, and level index 1 playing
@@ -30,3 +30,5 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 ## Comments
 
 - 2026-11-14 (agent, branch `ticket/06-chest-and-transition`): `@game/state` now has the full machine plus `createDirector` (builds levels via `sim.load`, times the 350 ms chest delay and 420 ms iris on sim ticks, clears input at chest open and again when `entering` unlocks, restarts via `restartRun`). `bindRestart` in `@game/keyboard` is the end-card listener. Iris and cards: `src/ui/iris.ts`, `src/ui/screens.ts`. Per-level views register with `createLevelViews()` (`src/render/level-views.ts`). Unit: `director.test.ts` with fake view/transition/camera; e2e: `tests/e2e/chest-transition.spec.ts` (640×400 viewport, chunked advances: SwiftShader frames reach ~1.5 s at full size after a walk). The ESLint game-layer rule was already in from 04; `layering.test.ts` now covers it.
+
+- 2026-11-14: Resolved. Merged into `main` (milestone-1 greybox spine, tickets 01–08); a code-review fix pass followed (`fix/code-review`, adc9908). On `main`: `pnpm check` (261 unit tests) and `pnpm test:e2e` (35/35) pass.

@@ -14,7 +14,7 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 
 **Blocked by:** 01, 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `planChamber` unit tests: the same seed gives the same plan; faces only towards open neighbours; padding never overlaps the map; variant weights match; no piece's count exceeds `PLAN_CAPACITY` over the baseline seeds
 - [x] Loading `?seed=…&level=0` twice renders an identical chamber; without params, the console logs the base seed
@@ -27,3 +27,5 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 ## Comments
 
 - 2026-11-14 (agent): done on `ticket/03-see-the-chamber`. `planChamber(level, seed)` and `PLAN_CAPACITY` / `planCapacity(cols, rows)` in `src/core/chamber-plan.ts`; run seeds in `src/core/run-seed.ts` (`resolveRun`, `seedForLevel`); `startTile` in `src/core/level.ts`. The kit contract (node names, local frames, contact-strip UVs) is `src/render/chamber-kit.ts`, checked against the GLB by `tests/unit/chamber-kit.test.ts`; `src/render/chamber.ts` instances the plan. Calls made: faces' rotation turns local +z (south) towards the open side; contact strips sit on the floor tile with +z towards the wall and reach `CONTACT_DEPTH` (v2's AO bands: 0.5 m N/W, 0.125 m E/S); the strip material is multiply-blended `INK` with an alpha ramp (`look.chamber`). `?level=1` without a seed starts an unpinned run at level 1. Not yet done: `face_slot` is in the kit but nothing places it (ticket 08); the placeholder faces have no cap lip. The greybox and `placeholders/wall|floor.glb` are gone.
+
+- 2026-11-14: Resolved. Merged into `main` (milestone-1 greybox spine, tickets 01–08); a code-review fix pass followed (`fix/code-review`, adc9908). On `main`: `pnpm check` (261 unit tests) and `pnpm test:e2e` (35/35) pass.

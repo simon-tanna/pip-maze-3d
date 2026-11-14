@@ -13,7 +13,7 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 
 **Blocked by:** 04, 05, 06
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Unit tests: flame states over a full cycle; every flame is off for t < phase; seeded phases match v2's derivation; the go-live re-check kills a hero standing on the tile; grace and `dying` block kills; grace ending in a live flame doesn't kill
 - [x] Unit tests: death timers (270 / 530 ms), key loss (including the key-2 hide on a synthetic two-key level), and coins unchanged by death
@@ -29,3 +29,5 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 - Implemented on `ticket/07-flames-kill`. Core: `@core/hazards` (`HAZARD_TIMING` flame half, `FLAME_CYCLE`, `flameState(t, phase)`, `flamePhase(seed, tile)` = v2's `hazardPhase`, `levelFlames(traps, seed)`). Sim: kills on landing (before pickups) and on go-live, only while `playing`, never while `dying`/grace/`ignoreHazards`; `DEATH_TIMING` 270 / 530 / 1000 ms; events `hazardLive`, `died`, `respawned` (plus 05's `keyLost`/`keyHidden`); snapshot `dying`, `grace`; `sim.flames()`. `heroPosition` holds the death spot until `gone`, and main resets the camera lag on `respawned` (the cut).
 - Greybox view `@render/flames` (columns coloured by state from 3 shared `MeshStandardMaterial`s, `look.flame`), registered with the per-level teardown. Dev overlay: press `G` (BLOOD slab on lethal tiles).
 - e2e `flames-kill.spec.ts` dies on level 0's flame at (19,7) after the key leg. `hero-walks.spec.ts` now uses `hazardsOff(true)`.
+
+- 2026-11-14: Resolved. Merged into `main` (milestone-1 greybox spine, tickets 01–08); a code-review fix pass followed (`fix/code-review`, adc9908). On `main`: `pnpm check` (261 unit tests) and `pnpm test:e2e` (35/35) pass.

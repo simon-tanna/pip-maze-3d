@@ -13,7 +13,7 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Unit tests cover the pickup order on landing, banking on pickup, the chest-locked event, the `step` event, and the key 2 reveal and hide-on-loss logic on a synthetic two-key level
 - [x] Unit test: a key flight that lands after the key count dropped leaves the slot empty
@@ -27,3 +27,5 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 ## Comments
 
 - 2026-11-14 (agent, branch `ticket/05-pickups-and-hud`): pickup rules in `@core/pickups`, driven by `createSim({ map, machine, pickups, session })`; `sim.dropKey()` is ready for 07. HUD is `src/ui/hud.ts` (+ `key-slots.ts`, `tweens.ts`), timed on render-interpolated sim time, tunables in `look.hud`; greybox pickups in `@render/pickups`. E2e: `tests/e2e/pickups-hud.spec.ts`, using the new `LEVEL_0.chestWithoutKey` route. `DEV_PORT` lets each worktree run its own e2e server.
+
+- 2026-11-14: Resolved. Merged into `main` (milestone-1 greybox spine, tickets 01–08); a code-review fix pass followed (`fix/code-review`, adc9908). On `main`: `pnpm check` (261 unit tests) and `pnpm test:e2e` (35/35) pass.

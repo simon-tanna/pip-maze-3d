@@ -15,7 +15,7 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 
 **Blocked by:** 07
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Unit tests: about 249 ms lethal per turn at the tile centre (|θ| < 28°); radius sensitivity matches the blade-rule ticket's table; a hero mid-step 0.44 m off the plane is clipped within about ±19°
 - [x] Unit tests: phase derivation and the shared-wall lock, including a three-blade chain (a synthetic map is fine; the baseline has 0 cases)
@@ -32,3 +32,5 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 - Implemented on `ticket/08-blades-kill`. Core: `src/core/blade-shape.json` + `@core/blade` (`BLADE_SHAPE`, `HEAD_RING`, `BODY_CAPSULE`, `bladeSegments(θ)`, `bladeTouches(θ, u, n, capsule?)` vendored from `proto-hazards-9f022b3`, `bladeAngle(t, phase)`, `levelBlades(traps, seed)` with the shared-wall chain lock). `HAZARD_TIMING.bladeSpin = 1600`. The sim checks contact every tick at `heroPosition(0)` (after flame go-lives, before a landing) and runs 07's `kill`; `died` now carries `hazard: 'flame' | 'blade'`; `sim.blades()` gives angles. Measured: 249 ms lethal per turn at r 0.4 (224 / 236 / 263 at 0.3 / 0.35 / 0.45), ±19° at 0.44 m off the plane.
 - `planChamber` places `face_slot` as face variant 3 (`FACE_SLOT_VARIANT`) without changing the rng stream. Greybox `@render/blades` (head extruded from `HEAD_RING`, `look.blade`); dev-only `@render/blade-zone` (dynamic import) toggles with `G`.
 - e2e: `blades-kill.spec.ts` and `acceptance.spec.ts`. The acceptance journey walks level 1 with `hazardsOff(true)`; level 0 runs with hazards live (the flame death, and the blade crossed while up).
+
+- 2026-11-14: Resolved. Merged into `main` (milestone-1 greybox spine, tickets 01–08); a code-review fix pass followed (`fix/code-review`, adc9908). On `main`: `pnpm check` (261 unit tests) and `pnpm test:e2e` (35/35) pass.
