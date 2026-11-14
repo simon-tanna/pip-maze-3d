@@ -75,10 +75,10 @@ test('renderer uses NeutralToneMapping, a 4-sample HalfFloat composer and look b
   expect(cfg.antialias).toBe(false);
 });
 
-test('pixel ratio is capped at 2 on a DPR-3 screen', async ({ page }) => {
+test('pixel ratio is capped at 1 on a DPR-3 screen', async ({ page }) => {
   await boot(page, 3);
   const dpr = await page.evaluate(() => (window as unknown as Win).__game.renderer.getPixelRatio());
-  expect(dpr).toBe(2);
+  expect(dpr).toBe(1);
 });
 
 test('the light rig never changes after boot, even with the light bench on', async ({ page }) => {
