@@ -16,13 +16,17 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 
 **Status:** ready-for-agent
 
-- [ ] Unit tests for `state.ts` transitions, including `ended` and `failed`, with fake `ChamberView` / `Transition` implementations
-- [ ] e2e on the shared fixture: collect the key, reach the chest, observe `sim` machine state pass through leaving → building → entering, and level index 1 playing
-- [ ] e2e: presses during leaving, building and entering don't move the hero; a direction held through the iris doesn't walk on arrival
-- [ ] e2e: opening level 1's chest shows the end card (`sim` state `ended`); a key press restarts with the same seed when pinned; a second restart works too; a held arrow from the last step doesn't restart
-- [ ] e2e unpinned: a restart logs a new base seed, and level 1's seed is stable within a run
-- [ ] The set of `renderer.info.programs` cache keys is identical before and after a transition, and no program compiles in the first 10 frames of `entering`
-- [ ] `renderer.info.memory` geometries and textures return to their level-0 baseline after level 0 → 1 → restart
-- [ ] e2e with `prefers-reduced-motion` emulated: the iris is an instant cut
-- [ ] A forced GLB 404 reaches `data-ready="error"`
-- [ ] `pnpm check` and `pnpm test:e2e` pass
+- [x] Unit tests for `state.ts` transitions, including `ended` and `failed`, with fake `ChamberView` / `Transition` implementations
+- [x] e2e on the shared fixture: collect the key, reach the chest, observe `sim` machine state pass through leaving → building → entering, and level index 1 playing
+- [x] e2e: presses during leaving, building and entering don't move the hero; a direction held through the iris doesn't walk on arrival
+- [x] e2e: opening level 1's chest shows the end card (`sim` state `ended`); a key press restarts with the same seed when pinned; a second restart works too; a held arrow from the last step doesn't restart
+- [x] e2e unpinned: a restart logs a new base seed, and level 1's seed is stable within a run
+- [x] The set of `renderer.info.programs` cache keys is identical before and after a transition, and no program compiles in the first 10 frames of `entering`
+- [x] `renderer.info.memory` geometries and textures return to their level-0 baseline after level 0 → 1 → restart
+- [x] e2e with `prefers-reduced-motion` emulated: the iris is an instant cut
+- [x] A forced GLB 404 reaches `data-ready="error"`
+- [x] `pnpm check` and `pnpm test:e2e` pass
+
+## Comments
+
+- 2026-11-14 (agent, branch `ticket/06-chest-and-transition`): `@game/state` now has the full machine plus `createDirector` (builds levels via `sim.load`, times the 350 ms chest delay and 420 ms iris on sim ticks, clears input at chest open and again when `entering` unlocks, restarts via `restartRun`). `bindRestart` in `@game/keyboard` is the end-card listener. Iris and cards: `src/ui/iris.ts`, `src/ui/screens.ts`. Per-level views register with `createLevelViews()` (`src/render/level-views.ts`). Unit: `director.test.ts` with fake view/transition/camera; e2e: `tests/e2e/chest-transition.spec.ts` (640×400 viewport, chunked advances: SwiftShader frames reach ~1.5 s at full size after a walk). The ESLint game-layer rule was already in from 04; `layering.test.ts` now covers it.
