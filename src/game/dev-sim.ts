@@ -9,11 +9,13 @@
  *   so they take the same path as the keyboard (`@game/keyboard` → grid input).
  * - `pause()` stops the rAF-driven advance; `advance(ms)` runs `ceil(ms / tick)` ticks
  *   directly (bypassing the frame clamp), then one render. `resume()` undoes `pause()`.
- * - `hazardsOff(bool)`: hazards ignore the hero (a no-op until ticket 07).
+ * - `hazardsOff(bool)`: hazards ignore the hero, live.
+ * - `flames()`: each flame's tile, phase and current state; `on(type, fn)`: the sim's
+ *   events, so e2e can record them tick-exact in the page.
  */
 import type { Dir } from '@core/grid-input';
 import type { FixedLoop } from './loop';
-import type { Sim, SimSnapshot } from './sim';
+import type { FlameNow, Sim, SimSnapshot } from './sim';
 
 /** The key each direction's `press` sends (one per direction; arrows, as a player would). */
 const DIR_CODES: Readonly<Record<Dir, string>> = {
@@ -31,6 +33,8 @@ export interface DevSim {
   resume(): void;
   advance(ms: number): void;
   hazardsOff(off: boolean): void;
+  flames(): readonly FlameNow[];
+  on: Sim['on'];
 }
 
 export function createDevSim(
@@ -56,5 +60,7 @@ export function createDevSim(
     hazardsOff(off) {
       sim.ignoreHazards = off;
     },
+    flames: () => sim.flames(),
+    on: (type, listener) => sim.on(type, listener),
   };
 }

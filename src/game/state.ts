@@ -14,6 +14,7 @@
 import { generateLevel } from '@core/generator';
 import type { Level } from '@core/generator';
 import type { WorldXZ } from '@core/grid';
+import { levelFlames } from '@core/hazards';
 import { restartRun, seedForLevel, SLICE_LEVELS } from '@core/run-seed';
 import type { RunStart } from '@core/run-seed';
 import type { Sim } from './sim';
@@ -162,7 +163,7 @@ export function createDirector(opts: DirectorOptions): Director {
     try {
       const seed = seedForLevel(run, index);
       level = generate(index, seed);
-      sim.load(level);
+      sim.load({ ...level, flames: levelFlames(level.traps, seed) });
       view.build({ index, seed, level });
       cameraRig.resetLag();
     } catch (error) {

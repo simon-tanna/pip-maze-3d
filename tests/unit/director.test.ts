@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Level } from '@core/generator';
 import type { WorldXZ } from '@core/grid';
 import { tileToWorld } from '@core/grid';
+import { flamePhase, levelFlames } from '@core/hazards';
 import type { RunStart } from '@core/run-seed';
 import { createSession, createSim, TICK_MS } from '@game/sim';
 import { createDirector, createGameState, TRANSITION_TIMING } from '@game/state';
@@ -42,10 +43,12 @@ function setup({
   run = PINNED,
   reduced = false,
   precompile = () => Promise.resolve(),
+  generate = (index: number) => (index === 0 ? LEVEL_A : LEVEL_B),
 }: {
   run?: RunStart;
   reduced?: boolean;
   precompile?: () => Promise<void>;
+  generate?: (index: number, seed: number) => Level;
 } = {}) {
   const machine = createGameState();
   const sim = createSim({ map: LEVEL_A.map, machine, session: createSession() });
@@ -79,7 +82,7 @@ function setup({
     run,
     drawSeed: () => seeds++,
     reducedMotion: () => reduced,
-    generate: (index) => (index === 0 ? LEVEL_A : LEVEL_B),
+    generate,
     onRun: (r) => runs.push(r),
     onError: (e) => errors.push(e),
   });
@@ -133,6 +136,21 @@ async function playing(opts?: Parameters<typeof setup>[0]) {
 }
 
 describe('the director', () => {
+  it('loads each level’s flames into the sim with phases seeded from the level seed', async () => {
+    const traps: Level['traps'] = [
+      { type: 'blade', col: 1, row: 1 },
+      { type: 'flame', col: 2, row: 1 },
+    ];
+    const g = await playing({ generate: () => ({ ...LEVEL_A, traps }) });
+    expect(g.sim.flames()).toEqual([
+      expect.objectContaining({
+        tile: { col: 2, row: 1 },
+        phase: flamePhase(42, { col: 2, row: 1 }),
+      }),
+    ]);
+    expect(g.sim.flames()).toEqual(levelFlames(traps, 42).map((f) => expect.objectContaining(f)));
+  });
+
   it('builds the first level behind INK, precompiles once, then irises open on the hero', async () => {
     const g = setup();
     g.director.start();
