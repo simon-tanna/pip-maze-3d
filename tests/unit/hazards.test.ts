@@ -3,8 +3,13 @@ import { generateLevel, tileRng } from '@core/generator';
 import { FLAME_CYCLE, flamePhase, flameState, HAZARD_TIMING, levelFlames } from '@core/hazards';
 
 describe('flame cycle', () => {
-  it('ports the flame half of v2’s HAZARD_TIMING unchanged', () => {
-    expect(HAZARD_TIMING).toEqual({ telegraph: 500, flameOn: 2000, flameOff: 2000 });
+  it('ports v2’s flame timing unchanged, plus the blade’s spin', () => {
+    expect(HAZARD_TIMING).toEqual({
+      telegraph: 500,
+      flameOn: 2000,
+      flameOff: 2000,
+      bladeSpin: 1600,
+    });
     expect(FLAME_CYCLE).toBe(4500);
   });
 

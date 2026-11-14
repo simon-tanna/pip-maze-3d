@@ -15,6 +15,9 @@
  *   while `on`: checked on landing (before pickups, so a death beats the chest) and when
  *   it goes live (the occupant re-check). Kills happen only while `playing`, never while
  *   `dying` or in grace, and not with `ignoreHazards`. Grace ending re-checks nothing.
+ * - Blades (`@core/blade`, ADR 0002) turn on the hazard clock and kill on contact: every
+ *   tick, after the flames and before a landing, the blade outline is tested against the
+ *   body capsule at the hero's `stepPosition` (mid-step included), with the same gates.
  * - Death (`DEATH_TIMING`): at t = 0 the step is cut, the hero takes the start tile facing
  *   south and drops its most recent key; at `gone` it respawns with `graceMs` of grace;
  *   at `unlock` input moves it again (held or buffered keys fire). Coins are untouched.
@@ -29,6 +32,8 @@ import type { TileMap } from '@core/generator';
 import { startTile } from '@core/level';
 import { flameState } from '@core/hazards';
 import type { Flame, FlameState } from '@core/hazards';
+import { bladeAngle, bladeTouches } from '@core/blade';
+import type { Blade } from '@core/blade';
 import { createPickups } from '@core/pickups';
 import type { PickupLayout } from '@core/pickups';
 import { STEP_MS, stepPosition } from '@core/step';
@@ -109,7 +114,7 @@ export interface SimEvents {
   /** A hazard on `tile` turned lethal (a flame went `on`). */
   hazardLive: At & { type: 'flame' };
   /** The hero was killed on `tile` (where it stood, or where its step was cut). */
-  died: At;
+  died: At & { hazard: 'flame' | 'blade' };
   /** The hero respawned on the start tile (`tile`); grace begins. */
   respawned: At;
 }
@@ -119,8 +124,17 @@ export interface FlameNow extends Flame {
   state: FlameState;
 }
 
-/** What `load` swaps in: the map, its pickups and its flames (default none). */
-export type SimLevel = { map: TileMap; flames?: readonly Flame[] } & PickupLayout;
+/** A blade and its angle θ on the hazard clock now (degrees, `@core/blade`). */
+export interface BladeNow extends Blade {
+  angle: number;
+}
+
+/** What `load` swaps in: the map, its pickups, its flames and blades (default none). */
+export type SimLevel = {
+  map: TileMap;
+  flames?: readonly Flame[];
+  blades?: readonly Blade[];
+} & PickupLayout;
 
 export interface Sim {
   /** One fixed tick. */
@@ -143,6 +157,8 @@ export interface Sim {
   load(level: SimLevel): void;
   /** The level's flames and their current states (for views and the dev overlay). */
   flames(): readonly FlameNow[];
+  /** The level's blades and their current angles (for views and the dev overlay). */
+  blades(): readonly BladeNow[];
   /** Drop the most recent key (death, ticket 07). False when none is held. */
   dropKey(): boolean;
   /** Whether key `index` stands in the level (for the pickup view). */
@@ -168,6 +184,8 @@ export interface SimOptions {
   session?: Session;
   /** The level's flames (default: none). */
   flames?: readonly Flame[];
+  /** The level's blades (default: none). */
+  blades?: readonly Blade[];
 }
 
 interface Death {
@@ -183,6 +201,7 @@ export function createSim({
   pickups: layout = NO_PICKUPS,
   session = createSession(),
   flames: initialFlames = [],
+  blades: initialBlades = [],
 }: SimOptions): Sim {
   let ticks = 0;
   let current = map;
@@ -208,6 +227,7 @@ export function createSim({
   let flames: readonly Flame[] = initialFlames;
   /** Each flame's state as of the last tick (go-live is a change to `on`). */
   let flameStates: FlameState[] = [];
+  let blades: readonly Blade[] = initialBlades;
   let death: Death | null = null;
   /** Grace lasts until this sim time (ms). */
   let graceUntilMs = -Infinity;
@@ -237,7 +257,7 @@ export function createSim({
   const lethalAt = (t: GridPos) =>
     flames.some((f, i) => f.tile.col === t.col && f.tile.row === t.row && flameStates[i] === 'on');
 
-  const kill = () => {
+  const kill = (hazard: SimEvents['died']['hazard']) => {
     const spot = self.heroPosition(0);
     const where = { tile: { ...tile }, world: at(tile) };
     step = null;
@@ -245,7 +265,7 @@ export function createSim({
     tile = startTile(current);
     facing = 'south';
     death = { atMs: now(), spot, respawned: false };
-    emit('died', where);
+    emit('died', { ...where, hazard });
     self.dropKey();
   };
 
@@ -258,7 +278,18 @@ export function createSim({
       flameStates[i] = next;
       if (next !== 'on' || was === 'on' || was === undefined) return;
       emit('hazardLive', { tile: { ...f.tile }, world: at(f.tile), type: 'flame' });
-      if (killable() && f.tile.col === tile.col && f.tile.row === tile.row) kill();
+      if (killable() && f.tile.col === tile.col && f.tile.row === tile.row) kill('flame');
+    });
+  };
+
+  /** Contact: does any blade's outline touch the hero's capsule where it is this tick? */
+  const bladeHit = () => {
+    if (blades.length === 0) return false;
+    const t = levelMs();
+    const { x, z } = self.heroPosition(0);
+    return blades.some((b) => {
+      const c = at(b.tile);
+      return bladeTouches(bladeAngle(t, b.phase), z - c.z, x - c.x);
     });
   };
 
@@ -284,7 +315,7 @@ export function createSim({
   const land = () => {
     emit('landed', { tile: { ...tile }, world: at(tile) });
     if (killable() && lethalAt(tile)) {
-      kill();
+      kill('flame');
       return;
     }
     for (const hit of pickups.land(tile)) {
@@ -339,6 +370,10 @@ export function createSim({
       }
       updateFlames();
       if (death) return; // a go-live killed the hero this tick
+      if (killable() && bladeHit()) {
+        kill('blade');
+        return;
+      }
       if (step && now() + TIME_EPSILON >= step.startMs + STEP_MS) {
         const endMs = step.startMs + STEP_MS;
         step = null;
@@ -387,12 +422,17 @@ export function createSim({
       levelStartMs = null;
       levelEndMs = null;
       flames = level.flames ?? [];
+      blades = level.blades ?? [];
       resetFlames();
       death = null;
       graceUntilMs = -Infinity;
       input.clear();
     },
     flames: () => flames.map((f, i) => ({ ...f, state: flameStates[i] ?? 'off' })),
+    blades: () => {
+      const t = levelMs();
+      return blades.map((b) => ({ ...b, angle: bladeAngle(t, b.phase) }));
+    },
     dropKey() {
       const losses = pickups.loseKey();
       for (const loss of losses) {

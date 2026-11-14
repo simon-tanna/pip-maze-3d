@@ -6,8 +6,8 @@
  * off until it, then repeats telegraph (500) → on (2000) → off (2000). Only `on` is lethal.
  * Phases are seeded per tile, so neighbouring flames ripple and a seed replays its timing.
  *
- * Only the flame half of `HAZARD_TIMING` is here; ticket 08 adds `bladeSpin`. v2's
- * `bladeHalfSwing` and `bladeDangerAngle` are not ported (the blade rule changed).
+ * Blades (ADR 0002) turn a full 360° every `bladeSpin` ms and kill on contact
+ * (`@core/blade`); v2's `bladeHalfSwing` and `bladeDangerAngle` are not ported.
  *
  * Pure: no three.js, no DOM.
  */
@@ -19,6 +19,8 @@ export const HAZARD_TIMING = {
   telegraph: 500,
   flameOn: 2000,
   flameOff: 2000,
+  /** One full blade turn, ms (ADR 0002), the same on every level. */
+  bladeSpin: 1600,
 } as const;
 
 /** One flame cycle, ms (v2 `HAZARD_CYCLE.flame`). */

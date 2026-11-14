@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Level } from '@core/generator';
 import type { WorldXZ } from '@core/grid';
 import { tileToWorld } from '@core/grid';
+import { levelBlades } from '@core/blade';
 import { flamePhase, levelFlames } from '@core/hazards';
 import type { RunStart } from '@core/run-seed';
 import { createSession, createSim, TICK_MS } from '@game/sim';
@@ -136,7 +137,7 @@ async function playing(opts?: Parameters<typeof setup>[0]) {
 }
 
 describe('the director', () => {
-  it('loads each level’s flames into the sim with phases seeded from the level seed', async () => {
+  it('loads each level’s flames and blades into the sim, phases seeded from the level seed', async () => {
     const traps: Level['traps'] = [
       { type: 'blade', col: 1, row: 1 },
       { type: 'flame', col: 2, row: 1 },
@@ -149,6 +150,8 @@ describe('the director', () => {
       }),
     ]);
     expect(g.sim.flames()).toEqual(levelFlames(traps, 42).map((f) => expect.objectContaining(f)));
+    expect(g.sim.blades()).toEqual(levelBlades(traps, 42).map((b) => expect.objectContaining(b)));
+    expect(g.sim.blades()).toHaveLength(1);
   });
 
   it('builds the first level behind INK, precompiles once, then irises open on the hero', async () => {
