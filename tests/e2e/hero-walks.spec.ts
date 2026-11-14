@@ -7,6 +7,7 @@ const SETTLED = 0.02; // m
 
 test('scripted presses walk level 0’s route to the chest', async ({ game }) => {
   await game.boot(LEVEL_0);
+  await game.hazardsOff(true); // its chest leg crosses a blade (ticket 08)
   expect(await game.snapshot()).toMatchObject({
     tile: LEVEL_0.start,
     machine: 'playing',
@@ -21,6 +22,7 @@ test('scripted presses walk level 0’s route to the chest', async ({ game }) =>
 
 test('level 1’s route reaches its chest', async ({ game }) => {
   await game.boot(LEVEL_1);
+  await game.hazardsOff(true); // its coin leg crosses three flames
   expect((await game.walk(routeMoves(LEVEL_1))).tile).toEqual(LEVEL_1.legs[2]?.tile);
 });
 
