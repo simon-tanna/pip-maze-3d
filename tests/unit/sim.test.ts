@@ -154,6 +154,20 @@ describe('loading the next level', () => {
     ticks(sim, 8);
   };
 
+  it('can be created with no level: the first load() supplies it (no throwaway level)', () => {
+    const machine = createGameState();
+    const sim = createSim({ machine });
+    machine.go('building');
+    sim.load(LEVEL_B);
+    machine.go('entering');
+    machine.go('playing');
+    expect(sim.snapshot()).toMatchObject({ tile: { col: 3, row: 1 }, keys: 0, requiredKeys: 1 });
+    sim.input.press('west');
+    sim.input.release('west'); // a tap: one step onto the key
+    ticks(sim, 10);
+    expect(sim.snapshot()).toMatchObject({ tile: { col: 2, row: 1 }, keys: 1 });
+  });
+
   it('load() puts the hero on the new start tile, facing south, with no keys', () => {
     const machine = createGameState();
     const sim = createSim({ map: LEVEL_A.map, machine, pickups: LEVEL_A });

@@ -3,7 +3,6 @@ import type { Camera, Light } from 'three';
 import type { WorldXZ } from '@core/grid';
 import { loadGltf } from '@assets/models';
 import { planChamber } from '@core/chamber-plan';
-import { generateLevel } from '@core/generator';
 import { mazeBounds, tileToWorld } from '@core/grid';
 import { resolveRun } from '@core/run-seed';
 import type { RunStart } from '@core/run-seed';
@@ -153,9 +152,9 @@ async function boot(shell: Shell): Promise<void> {
   const kit = await loadGltf(CHAMBER_KIT);
   screens.hide(); // the iris stays shut until the first chamber is built
 
-  const first = generateLevel(run.level, run.seed);
   const session = createSession();
-  const sim = createSim({ map: first.map, machine, pickups: first, session });
+  // No level yet: the director generates level 0 once, on its first `building`.
+  const sim = createSim({ machine, session });
   clock.now = () => sim.timeAt(0);
   const chamber = createChamberView(kit);
   scene.add(chamber.group);

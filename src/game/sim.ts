@@ -173,6 +173,8 @@ export interface Sim {
   coinVisible(index: number): boolean;
 }
 
+/** Before the first `load`: a lone start tile. */
+const NO_LEVEL: TileMap = [[2]];
 const NO_PICKUPS: PickupLayout = { coins: [], key: { col: -1, row: -1 }, key2: null };
 
 interface Step {
@@ -182,7 +184,11 @@ interface Step {
 }
 
 export interface SimOptions {
-  map: TileMap;
+  /**
+   * The first level's map. Optional: a sim whose levels come from `load` (the director's
+   * `building`) starts on a one-tile placeholder until the first load.
+   */
+  map?: TileMap;
   machine: GameState;
   /** The level's coins and keys (default: none; the map's chest stays locked). */
   pickups?: PickupLayout;
@@ -204,7 +210,7 @@ interface Death {
 }
 
 export function createSim({
-  map,
+  map = NO_LEVEL,
   machine,
   pickups: layout = NO_PICKUPS,
   session = createSession(),
