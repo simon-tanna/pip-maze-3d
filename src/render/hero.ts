@@ -5,14 +5,14 @@
  * simulation's facing changes instantly at step start.
  */
 import { BoxGeometry, CapsuleGeometry, Group, Mesh, MeshStandardMaterial } from 'three';
+import { BODY_CAPSULE } from '@core/blade';
 import type { Dir } from '@core/grid-input';
 import type { WorldXZ } from '@core/grid';
 import { look } from './look';
 import { color } from './palette';
 
-/** Body capsule: radius 0.4, total height 1.5 (ADR 0002's contact capsule). */
-const RADIUS = 0.4;
-const HEIGHT = 1.5;
+/** The drawn body is the contact capsule (ADR 0002), so the two can't drift apart. */
+const { radius: RADIUS, height: HEIGHT } = BODY_CAPSULE;
 
 /** `rotation.y` that points the hero's forward (+z) along `dir`. */
 export function facingYaw(dir: Dir): number {
@@ -41,15 +41,16 @@ export function createHeroView(): HeroView {
   object.name = 'hero';
   const body = new Mesh(
     new CapsuleGeometry(RADIUS, HEIGHT - 2 * RADIUS, 4, 12),
-    new MeshStandardMaterial({ color: color('HERO_COAT'), roughness: 0.8 }),
+    new MeshStandardMaterial({ color: color('HERO_COAT'), roughness: look.hero.roughness }),
   );
   body.position.y = HEIGHT / 2;
   const nose = new Mesh(
     new BoxGeometry(0.22, 0.16, 0.3),
-    new MeshStandardMaterial({ color: color('HERO_COAT_DARK'), roughness: 0.8 }),
+    new MeshStandardMaterial({ color: color('HERO_COAT_DARK'), roughness: look.hero.roughness }),
   );
   nose.position.set(0, HEIGHT * 0.72, RADIUS);
-  for (const m of [body, nose]) m.castShadow = true;
+  const parts = [body, nose];
+  for (const m of parts) m.castShadow = true;
   object.add(body, nose);
 
   let target: Dir | null = null;
@@ -58,6 +59,7 @@ export function createHeroView(): HeroView {
   return {
     object,
     update(position, facing, timeMs) {
+      for (const m of parts) m.material.roughness = look.hero.roughness;
       object.position.set(position.x, 0, position.z);
       if (target === null) {
         turn = { from: facingYaw(facing), delta: 0, startMs: timeMs }; // first frame: no turn

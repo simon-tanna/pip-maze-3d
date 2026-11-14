@@ -10,8 +10,14 @@ export const flame = section(
     onEmissive: 2,
     /** Emissive intensity of a telegraphing column. */
     telegraphEmissive: 0.6,
+    /** Roughness of an unlit (off) column. */
+    offRoughness: 0.8,
+    /** Roughness of a telegraphing or firing column. */
+    litRoughness: 0.6,
   },
   {
+    offRoughness: [0, 1, 0.01],
+    litRoughness: [0, 1, 0.01],
     columnHeight: [0.2, 4, 0.05],
     onEmissive: [0, 6, 0.1],
     telegraphEmissive: [0, 6, 0.1],

@@ -6,8 +6,11 @@ export const hero = section(
   {
     /** Render-only turn to a new facing, shortest arc, ms. */
     turnMs: 60,
+    /** Roughness of the capsule body and nose. */
+    roughness: 0.8,
   },
   {
     turnMs: [0, 300, 5],
+    roughness: [0, 1, 0.01],
   },
 );

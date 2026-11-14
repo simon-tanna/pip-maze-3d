@@ -11,12 +11,15 @@ import { tileToWorld } from '@core/grid';
 import { look } from './look';
 import { color } from './palette';
 
-const gold = new MeshStandardMaterial({ color: color('GOLD'), metalness: 0.6, roughness: 0.4 });
-const goldDark = new MeshStandardMaterial({
-  color: color('GOLD_DARK'),
-  metalness: 0.6,
-  roughness: 0.5,
-});
+const gold = new MeshStandardMaterial({ color: color('GOLD') });
+const goldDark = new MeshStandardMaterial({ color: color('GOLD_DARK') });
+/** Feel numbers come from `look.pickups` on every `update`. */
+const syncMaterials = () => {
+  gold.metalness = goldDark.metalness = look.pickups.goldMetalness;
+  gold.roughness = look.pickups.goldRoughness;
+  goldDark.roughness = look.pickups.chestRoughness;
+};
+syncMaterials();
 const COIN = new CylinderGeometry(0.2, 0.2, 0.06, 16).rotateX(Math.PI / 2);
 const KEY = new BoxGeometry(0.6, 0.14, 0.14);
 const CHEST = new BoxGeometry(1.2, 0.6, 0.8).translate(0, 0.3, 0);
@@ -98,6 +101,7 @@ export function createPickupsView(): PickupsView {
       lid = null;
     },
     update(state) {
+      syncMaterials();
       coins.forEach((m, i) => (m.visible = state.coinVisible(i)));
       keys.forEach((m, i) => (m.visible = state.keyVisible(i)));
     },

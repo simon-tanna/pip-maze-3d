@@ -23,9 +23,17 @@ import { color } from './palette';
 const DEG = Math.PI / 180;
 const { arm, halfThickness, pivotHeight } = BLADE_SHAPE;
 
-const STEEL = new MeshStandardMaterial({ color: color('STEEL_LIGHT'), metalness: 1 });
-const STEEL_DARK = new MeshStandardMaterial({ color: color('STEEL_DARK'), metalness: 1 });
-const STONE = new MeshStandardMaterial({ color: color('STONE_DARK'), roughness: 0.9 });
+/** Feel numbers come from `look.blade` on every `update`. */
+const STEEL = new MeshStandardMaterial({ color: color('STEEL_LIGHT') });
+const STEEL_DARK = new MeshStandardMaterial({ color: color('STEEL_DARK') });
+const STONE = new MeshStandardMaterial({ color: color('STONE_DARK') });
+const syncMaterials = () => {
+  STEEL.roughness = look.blade.headRoughness;
+  STEEL_DARK.roughness = look.blade.haftRoughness;
+  STEEL.metalness = STEEL_DARK.metalness = look.blade.steelMetalness;
+  STONE.roughness = look.blade.stoneRoughness;
+};
+syncMaterials();
 
 /** The crescent, head-local, extruded ±halfThickness about the swing plane. */
 const HEAD = (() => {
@@ -108,8 +116,7 @@ export function createBladesView(): BladesView {
       group.add(...made.map((m) => m.root));
     },
     update(blades) {
-      STEEL.roughness = look.blade.headRoughness;
-      STEEL_DARK.roughness = look.blade.haftRoughness;
+      syncMaterials();
       pivots.forEach((p, i) => (p.rotation.z = (blades[i]?.angle ?? 0) * DEG));
     },
     teardown() {

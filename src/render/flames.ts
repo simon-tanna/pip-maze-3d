@@ -19,14 +19,18 @@ import { look } from './look';
 import { color } from './palette';
 
 const MATERIALS: Readonly<Record<FlameState, MeshStandardMaterial>> = {
-  off: new MeshStandardMaterial({ color: color('EMBER_DARK'), roughness: 0.8 }),
-  telegraph: new MeshStandardMaterial({
-    color: color('FIRE_HOT'),
-    emissive: color('EMBER'),
-    roughness: 0.6,
-  }),
-  on: new MeshStandardMaterial({ color: color('FIRE'), emissive: color('FIRE'), roughness: 0.6 }),
+  off: new MeshStandardMaterial({ color: color('EMBER_DARK') }),
+  telegraph: new MeshStandardMaterial({ color: color('FIRE_HOT'), emissive: color('EMBER') }),
+  on: new MeshStandardMaterial({ color: color('FIRE'), emissive: color('FIRE') }),
 };
+/** Feel numbers come from `look.flame` on every `update`. */
+const syncMaterials = () => {
+  MATERIALS.off.roughness = look.flame.offRoughness;
+  MATERIALS.telegraph.roughness = MATERIALS.on.roughness = look.flame.litRoughness;
+  MATERIALS.on.emissiveIntensity = look.flame.onEmissive;
+  MATERIALS.telegraph.emissiveIntensity = look.flame.telegraphEmissive;
+};
+syncMaterials();
 const TRUTH = new MeshStandardMaterial({ color: color('BLOOD'), emissive: color('BLOOD') });
 
 /** A unit-height column standing on the floor (scaled to `look.flame.columnHeight`). */
@@ -87,8 +91,7 @@ export function createFlamesView({ truth = false }: { truth?: boolean } = {}): F
       group.add(...columns, ...slabs);
     },
     update(flames) {
-      MATERIALS.on.emissiveIntensity = look.flame.onEmissive;
-      MATERIALS.telegraph.emissiveIntensity = look.flame.telegraphEmissive;
+      syncMaterials();
       columns.forEach((m, i) => {
         m.material = MATERIALS[flames[i]?.state ?? 'off'];
         m.scale.y = look.flame.columnHeight;
