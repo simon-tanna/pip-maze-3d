@@ -88,7 +88,7 @@ Read the ticket for detail. This spec doesn't restate them.
 - **Foundation.**
   - `palette.json` gets a `HERO_*` block. `palette.ts` exposes `P`, `LIGHT`, `color()` and `css()`; `blender/scripts/lib/palette.py` reads the same JSON.
   - `look.ts` holds every feel value, in per-domain sections (camera, hud, flame, blade, pickups, fx, hero), with a dev-only lil-gui panel and a frame-time readout.
-  - Renderer: `NeutralToneMapping`, DPR capped at 2. EffectComposer on a 4-sample `HalfFloatType` render target sized by DPR (the canvas drops `antialias: true`) → bloom (threshold 1.0, strength 0.45) → vignette → `OutputPass`.
+  - Renderer: `NeutralToneMapping`, DPR capped at 1 (was 2: DPR 2 on the M3 Retina ran ≈50 ms frames, fill-bound). EffectComposer on a 4-sample `HalfFloatType` render target sized by DPR (the canvas drops `antialias: true`) → bloom (threshold 1.0, strength 0.45) → vignette → `OutputPass`.
   - Lights, fixed: a north-west shadowed key light (55–60°), a hemisphere fill, the torch, 4 pool slots, and a palette-gradient PMREM env map. Every light is a direct child of the scene, never of a node that can be hidden. The torch copies the hero's position each render.
 - **Chamber.** As in 05: `planChamber` (core) → one `InstancedMesh` per (piece, variant) from `kit/chamber.glb`. `planChamber` takes the level (map and hazards), so it can pick the `face_slot` variant for wall tiles north and south of a blade. Each mesh is allocated at the worst case `PLAN_CAPACITY` exports for its piece, and `computeBoundingSphere()` runs after every build. Padding ring, contact strips, shadow frustum fixed to the map at 2048².
 - **Hero.**

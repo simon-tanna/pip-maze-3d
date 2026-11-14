@@ -56,7 +56,7 @@ Steel uses the light end of its ramp because a PBR metal's base colour is its re
 
 - **Tone mapping: `NeutralToneMapping`** (replaces the scaffold's ACES Filmic), so palette base colours, especially the reserved fire, gold and teal, stay close to their hex values.
 - **Chain:** `EffectComposer` with an MSAA render target → `UnrealBloomPass` (high threshold: only emissive at intensity ≥ 2 blooms, and lit surfaces are tuned to stay below it) → subtle vignette → `OutputPass`.
-- No SSAO/GTAO (AO is baked), no outline pass, no pixelated render target. Native resolution, DPR capped at 2. The HUD is DOM, so post never touches it.
+- No SSAO/GTAO (AO is baked), no outline pass, no pixelated render target. Native resolution, DPR capped at 1 (at DPR 2 the post chain cost ~51 ms/frame on an M3; decided 2026-11-14). The HUD is DOM, so post never touches it.
 
 ### Tuning
 

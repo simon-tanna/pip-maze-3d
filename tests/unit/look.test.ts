@@ -30,7 +30,8 @@ describe('look', () => {
   it('holds the post and light starting values from the spec', () => {
     expect(look.post.bloomThreshold).toBe(1.0);
     expect(look.post.bloomStrength).toBe(0.45);
-    expect(look.renderer.maxPixelRatio).toBe(2);
+    // DPR 2 quadruples the 4x-MSAA HalfFloat + bloom fill: 50 ms frames on an M3 Retina.
+    expect(look.renderer.maxPixelRatio).toBe(1);
     expect(look.renderer.msaaSamples).toBe(4);
     expect(look.lights.keyElevationDeg).toBeGreaterThanOrEqual(55);
     expect(look.lights.keyElevationDeg).toBeLessThanOrEqual(60);
