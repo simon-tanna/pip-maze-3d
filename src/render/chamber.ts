@@ -129,6 +129,11 @@ export function createChamberView(kit: Gltf): ChamberView {
       for (const p of plan) {
         const mesh = meshes.get(keyOf(p.piece, p.variant, p.padding === true));
         if (!mesh) throw new Error(`no kit mesh for ${p.piece} variant ${p.variant}`);
+        if (mesh.count >= mesh.instanceMatrix.count) {
+          throw new Error(
+            `${mesh.name}: plan exceeds its capacity of ${mesh.instanceMatrix.count}`,
+          );
+        }
         mesh.setMatrixAt(mesh.count++, placementMatrix(p, m));
       }
       for (const mesh of meshes.values()) {

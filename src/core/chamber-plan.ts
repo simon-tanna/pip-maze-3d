@@ -2,7 +2,7 @@
  * Chamber plan: which kit piece goes on which tile (map ticket 05). Pure data, no three.js;
  * `src/render/chamber.ts` turns it into instance matrices.
  */
-import { tileRng } from './generator';
+import { MAP_COLS, MAP_ROWS, tileRng } from './generator';
 import type { Level } from './generator';
 
 export type ChamberPiece = 'cap' | 'face' | 'floor' | 'contact';
@@ -82,10 +82,6 @@ export function wallMask(map: Level['map'], col: number, row: number): number {
     return isOpen(map, col + dc, row + dr) ? m | OPEN[s] : m;
   }, 0);
 }
-
-/** v2's map size; every slice level is this big. */
-export const MAP_COLS = 40;
-export const MAP_ROWS = 15;
 
 /**
  * Worst-case instance count per piece on a `cols × rows` map, the size each piece's

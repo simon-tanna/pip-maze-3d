@@ -76,6 +76,14 @@ describe('chamber view', () => {
     }
   });
 
+  it('throws rather than write past a mesh’s PLAN_CAPACITY instances', () => {
+    const view = createChamberView(fakeKit());
+    const floor = { piece: 'floor', variant: 0, col: 1, row: 1, rotation: 0 } as Placement;
+    const over = Array.from({ length: PLAN_CAPACITY.floor + 1 }, () => floor);
+    expect(() => view.build(over)).toThrow(/capacity/);
+    expect(() => view.build(over.slice(1))).not.toThrow();
+  });
+
   it('keeps padding out of the shadow map, and the map in it', () => {
     const view = createChamberView(fakeKit());
     view.build(plan);

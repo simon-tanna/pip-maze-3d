@@ -230,8 +230,9 @@ export const COIN_SALT = 0x9e3779b9;
 /** Preferred minimum route-index gap between two coins. */
 export const COIN_SPACING = 3;
 
-const COLS = 40;
-const ROWS = 15;
+/** v2's map size: every generated level is `MAP_COLS × MAP_ROWS` tiles. */
+export const MAP_COLS = 40;
+export const MAP_ROWS = 15;
 const START: GridTile = { col: 1, row: 1 };
 
 const DIRS: readonly Tile[] = [
@@ -558,7 +559,7 @@ interface Room {
 function generateOnce(levelIndex: number, seed: number, config: LevelConfig): Level | null {
   const rng = mulberry32(seed);
 
-  const map: TileMap = Array.from({ length: ROWS }, () => Array<number>(COLS).fill(1));
+  const map: TileMap = Array.from({ length: MAP_ROWS }, () => Array<number>(MAP_COLS).fill(1));
   setCell(map, 1, 1, 2);
 
   const CELL_COLS = 19;
@@ -620,8 +621,8 @@ function generateOnce(levelIndex: number, seed: number, config: LevelConfig): Le
   const [exitCol, exitRow] = exit;
   setCell(map, exitCol, exitRow, 3);
 
-  for (let r = 1; r < ROWS - 1; r++) {
-    for (let c = 1; c < COLS - 1; c++) {
+  for (let r = 1; r < MAP_ROWS - 1; r++) {
+    for (let c = 1; c < MAP_COLS - 1; c++) {
       if (cell(map, c, r) !== 1) continue;
       if ((r % 2 === 0) === (c % 2 === 0)) continue;
       const isHoriz = r % 2 === 1;
@@ -629,7 +630,7 @@ function generateOnce(levelIndex: number, seed: number, config: LevelConfig): Le
       const n1c = c + (isHoriz ? -1 : 0);
       const n2r = r + (isHoriz ? 0 : 1);
       const n2c = c + (isHoriz ? 1 : 0);
-      if (n1r < 0 || n2r >= ROWS || n1c < 0 || n2c >= COLS) continue;
+      if (n1r < 0 || n2r >= MAP_ROWS || n1c < 0 || n2c >= MAP_COLS) continue;
       if (cell(map, n1c, n1r) !== 1 && cell(map, n2c, n2r) !== 1) {
         const isDead =
           floorNeighbourCount(map, n1r, n1c) === 1 || floorNeighbourCount(map, n2r, n2c) === 1;

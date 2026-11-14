@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateLevel, tileRng } from '@core/generator';
+import { generateLevel, MAP_COLS, MAP_ROWS, tileRng } from '@core/generator';
 import {
   CONTACT_DEPTH,
   FACE_SLOT_VARIANT,
@@ -152,11 +152,19 @@ describe('planChamber', () => {
     expect(FACE_SLOT_VARIANT).toBe(FACE_VARIANTS);
   });
 
-  it('never exceeds PLAN_CAPACITY, on the baseline seeds or on worst-case 40×15 maps', () => {
+  it('generated maps are the generator’s MAP_COLS × MAP_ROWS', () => {
+    for (const b of baseline) {
+      const { map } = generateLevel(b.i, b.seed);
+      expect(map).toHaveLength(MAP_ROWS);
+      for (const row of map) expect(row).toHaveLength(MAP_COLS);
+    }
+  });
+
+  it('never exceeds PLAN_CAPACITY, on the baseline seeds or on worst-case full-size maps', () => {
     const synthetic = (wall: (c: number, r: number) => boolean): Level => ({
       ...level,
-      map: Array.from({ length: 15 }, (_, r) =>
-        Array.from({ length: 40 }, (_, c) => (wall(c, r) ? 1 : 0)),
+      map: Array.from({ length: MAP_ROWS }, (_, r) =>
+        Array.from({ length: MAP_COLS }, (_, c) => (wall(c, r) ? 1 : 0)),
       ),
     });
     const levels = [
