@@ -226,7 +226,7 @@ async function boot(shell: Shell): Promise<void> {
   const frame = (alpha: number) => {
     const timeMs = sim.timeAt(alpha);
     const at = sim.heroPosition(alpha);
-    const { facing } = sim.snapshot();
+    const facing = sim.heroFacing(); // held through the death window, like the position
     hero.update(at, facing, timeMs);
     cameraRig.update(at, facing, timeMs);
     scene.environmentIntensity = look.lights.envIntensity;

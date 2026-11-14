@@ -148,6 +148,12 @@ export interface Sim {
   timeAt(alpha: number): number;
   /** The hero's world position at `alpha`, from `stepPosition` mid-step. */
   heroPosition(alpha: number): WorldXZ;
+  /**
+   * The facing views draw: the snapshot's, except from a kill until `gone`, where it stays
+   * the facing the hero died with (the sim's facing is already south), so the hero view
+   * doesn't turn and the camera's lead doesn't drift off the death spot.
+   */
+  heroFacing(): Dir;
   on<K extends keyof SimEvents>(type: K, listener: (event: SimEvents[K]) => void): void;
   /**
    * Swap in the next level (state machine `building`): the hero goes to its start tile,
@@ -192,6 +198,8 @@ interface Death {
   atMs: number;
   /** Where the hero was drawn when it died (the camera holds here until `gone`). */
   spot: WorldXZ;
+  /** The facing the hero died with (drawn until `gone`). */
+  facing: Dir;
   respawned: boolean;
 }
 
@@ -259,12 +267,13 @@ export function createSim({
 
   const kill = (hazard: SimEvents['died']['hazard']) => {
     const spot = self.heroPosition(0);
+    const diedFacing = facing;
     const where = { tile: { ...tile }, world: at(tile) };
     step = null;
     chainStartMs = null;
     tile = startTile(current);
     facing = 'south';
-    death = { atMs: now(), spot, respawned: false };
+    death = { atMs: now(), spot, facing: diedFacing, respawned: false };
     emit('died', { ...where, hazard });
     self.dropKey();
   };
@@ -408,6 +417,9 @@ export function createSim({
       if (death && !death.respawned) return death.spot;
       if (!step) return tileToWorld(tile.col, tile.row);
       return stepPosition(step.from, step.to, (self.timeAt(alpha) - step.startMs) / STEP_MS);
+    },
+    heroFacing() {
+      return death && !death.respawned ? death.facing : facing;
     },
     on(type, listener) {
       listeners[type].push(listener);
