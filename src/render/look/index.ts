@@ -5,6 +5,7 @@
  * `look` below. Don't hard-code feel values anywhere else.
  */
 import { bench } from './bench';
+import { blade } from './blade';
 import { camera } from './camera';
 import { chamber } from './chamber';
 import { flame } from './flame';
@@ -27,6 +28,7 @@ export const look = {
   chamber,
   hero,
   flame,
+  blade,
   pickups,
   hud,
   bench,

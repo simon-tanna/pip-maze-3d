@@ -12,6 +12,7 @@ import { createFixedLoop } from '@game/loop';
 import { createSession, createSim } from '@game/sim';
 import { createDirector, createGameState } from '@game/state';
 import type { GameState } from '@game/state';
+import { createBladesView } from '@render/blades';
 import { createCameraRig } from '@render/camera-rig';
 import { createChamberView } from '@render/chamber';
 import { CHAMBER_KIT } from '@render/chamber-kit';
@@ -162,6 +163,8 @@ async function boot(shell: Shell): Promise<void> {
   scene.add(pickups.group);
   const flames = createFlamesView({ truth: import.meta.env.DEV });
   scene.add(flames.group);
+  const blades = createBladesView();
+  scene.add(blades.group);
   const hero = createHeroView();
   scene.add(hero.object);
   const cameraRig = createCameraRig(camera);
@@ -194,6 +197,7 @@ async function boot(shell: Shell): Promise<void> {
   });
   levels.add({ build: ({ level }) => pickups.build(level), teardown: pickups.teardown });
   levels.add({ build: () => flames.build(sim.flames()), teardown: () => flames.teardown() });
+  levels.add({ build: () => blades.build(sim.blades()), teardown: () => blades.teardown() });
   levels.add({
     build: ({ index }) => hud.level({ index, requiredKeys: sim.snapshot().requiredKeys }),
   });
@@ -217,6 +221,8 @@ async function boot(shell: Shell): Promise<void> {
     },
   });
 
+  /** Dev-only per-frame hooks (the blade contact-zone overlay). */
+  const devFrame: (() => void)[] = [];
   const frame = (alpha: number) => {
     const timeMs = sim.timeAt(alpha);
     const at = sim.heroPosition(alpha);
@@ -227,6 +233,8 @@ async function boot(shell: Shell): Promise<void> {
     chamber.update();
     pickups.update(sim);
     flames.update(sim.flames());
+    blades.update(sim.blades());
+    for (const f of devFrame) f();
     hud.update(timeMs);
     iris.update(timeMs);
     rig.update({ hero: hero.object.position, poolsAtPeak: look.bench.poolsAtPeak });
@@ -277,10 +285,18 @@ async function boot(shell: Shell): Promise<void> {
   if (import.meta.env.DEV && stats) {
     const { mountDevTools } = await import('@render/dev-panel');
     const { createDevSim } = await import('@game/dev-sim');
+    const { createBladeZone } = await import('@render/blade-zone');
     mountDevTools(stats);
-    // G: the ground-truth overlay of lethal tiles (the hazards prototype's).
+    // G: the ground truth (the hazards prototype's): lethal flame tiles and each blade's
+    // contact segments, drawn from the same core test the simulation runs.
+    const zone = createBladeZone();
+    scene.add(zone.group);
+    levels.add({ build: () => zone.build(sim.blades()), teardown: () => zone.teardown() });
+    devFrame.push(() => zone.update(sim.blades()));
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'KeyG' && !e.repeat) flames.showTruth = !flames.showTruth;
+      if (e.code !== 'KeyG' || e.repeat) return;
+      flames.showTruth = !flames.showTruth;
+      zone.show = flames.showTruth;
     });
     Object.assign(window, {
       __game: {
@@ -303,6 +319,8 @@ async function boot(shell: Shell): Promise<void> {
         chamber,
         pickups: pickups.group,
         flames,
+        blades,
+        bladeZone: zone,
         hero: hero.object,
         cameraRig,
         sim: createDevSim(sim, loop, director),
