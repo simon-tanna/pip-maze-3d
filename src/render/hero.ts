@@ -11,6 +11,9 @@ import type { WorldXZ } from '@core/grid';
 import { look } from './look';
 import { color } from './palette';
 
+/** Pip's GLB under public/models (built by blender/scripts/build_pip.py). */
+export const HERO_MODEL = 'characters/pip';
+
 /** The drawn body is the contact capsule (ADR 0002), so the two can't drift apart. */
 const { radius: RADIUS, height: HEIGHT } = BODY_CAPSULE;
 
