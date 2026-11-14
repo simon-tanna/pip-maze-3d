@@ -12,7 +12,7 @@
  * so TILE_SIZE is also the Blender module size for wall/floor pieces.
  */
 
-/** Edge length of one maze tile in world units (metres). Mirrored in blender/scripts/build_placeholders.py. */
+/** Edge length of one maze tile in world units (metres). Mirrored in blender/scripts/lib/kit.py. */
 export const TILE_SIZE = 2;
 
 export interface GridPos {

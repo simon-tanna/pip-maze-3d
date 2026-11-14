@@ -1,9 +1,11 @@
 """Procedurally build the placeholder chamber kit and export it as one .glb.
 
 One scene, one GLB (public/models/placeholders/chamber.glb) with the same node names as
-ticket 09's sandstone kit, so swapping kits is a file change. The contract (local frames,
-which way faces look, the contact strip's UVs) is documented in src/render/chamber-kit.ts
-and checked by tests/unit/chamber-kit.test.ts. Variants are duplicate meshes for now.
+ticket 09's sandstone kit (build_chamber_kit.py), so swapping kits is a file change. The
+game loads the sandstone kit; this greybox stays as a debugging fallback (it has no cap
+lip). The contract (local frames, which way faces look, the contact strip's UVs) is
+documented in src/render/chamber-kit.ts and checked by tests/unit/chamber-kit.test.ts.
+Variants are duplicate meshes.
 
 Blender is Z-up and export_yup maps Blender (x, y, z) to three.js (x, z, -y), so three's
 south (+z) is Blender's -y.
@@ -20,17 +22,18 @@ import bmesh  # noqa: E402
 import bpy  # noqa: E402
 
 from lib.gltf import export_glb  # noqa: E402
+from lib.kit import (  # noqa: E402
+    CAP_THICKNESS,
+    CONTACT_LIFT,
+    HALF,
+    SLOT_WIDTH,
+    TILE_SIZE,
+    WALL_HEIGHT,
+)
 from lib.palette import rgba  # noqa: E402
 from lib.paths import MODELS_DIR  # noqa: E402
 
-TILE_SIZE = 2.0  # metres — must match TILE_SIZE in src/core/grid.ts
-WALL_HEIGHT = 2.2  # metres — must match WALL_HEIGHT in src/render/chamber-kit.ts
-CAP_THICKNESS = 0.2
 FACE_DEPTH = 0.15  # relief stays inside the wall tile
-SLOT_WIDTH = 0.4  # face_slot / cap_slot: the gap a blade spins through
-CONTACT_LIFT = 0.01  # above the floor, so the strip never z-fights it
-
-HALF = TILE_SIZE / 2
 
 
 def reset_scene() -> None:
