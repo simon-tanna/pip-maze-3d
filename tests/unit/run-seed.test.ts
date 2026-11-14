@@ -39,20 +39,25 @@ describe('resolveRun', () => {
     expect(run('seed=4294967295').seed).toBe(4294967295);
   });
 
+  it.each(['level=5', 'seed=abc', 'seed=-1', 'seed=4294967296', 'seed=1.5', 'seed=0x10', 'seed='])(
+    'warns on %s and falls back to an unpinned level 0',
+    (query) => {
+      const r = run(query);
+      expect(r).toMatchObject({ base: 777, level: 0, seed: 777, pinned: false });
+      expect(r.warnings).toHaveLength(1);
+    },
+  );
+
   it.each([
-    'level=5',
-    'seed=abc',
-    'seed=-1',
-    'seed=4294967296',
-    'seed=1.5',
-    'seed=0x10',
-    'seed=',
-    'seed=12&level=2',
-    'seed=12&level=one',
-  ])('warns on %s and falls back to an unpinned level 0', (query) => {
+    ['seed=abc&level=one', ['seed="abc"', 'level="one"']],
+    ['seed=abc&level=1', ['seed="abc"', 'level=1']],
+    ['seed=12&level=2', ['level="2"', 'seed=12']],
+    ['seed=12&level=one', ['level="one"', 'seed=12']],
+  ])('on %s, warns about each param it does not use, then falls back', (query, reasons) => {
     const r = run(query);
     expect(r).toMatchObject({ base: 777, level: 0, seed: 777, pinned: false });
-    expect(r.warnings).toHaveLength(1);
+    expect(r.warnings).toHaveLength(reasons.length);
+    reasons.forEach((reason, i) => expect(r.warnings[i]).toContain(reason));
   });
 });
 

@@ -48,11 +48,18 @@ export function resolveRun(params: Params, drawSeed: () => number): RunStart {
   const seed = rawSeed === null ? null : parseSeed(rawSeed);
   const level = rawLevel === null ? 0 : parseLevel(rawLevel);
 
+  // Each param is checked on its own, so every reason is logged; any invalid one falls
+  // back to the unpinned level 0, and a valid param that fallback drops is logged too.
   const warnings: string[] = [];
-  if (rawSeed !== null && seed === null) {
-    warnings.push(`seed=${JSON.stringify(rawSeed)} is not a decimal uint32; using a random seed`);
-  } else if (level === null) {
-    warnings.push(`level=${JSON.stringify(rawLevel)} must be 0–${SLICE_LEVELS - 1}; using level 0`);
+  const badSeed = rawSeed !== null && seed === null;
+  const badLevel = level === null;
+  if (badSeed) warnings.push(`seed=${JSON.stringify(rawSeed)} is not a decimal uint32`);
+  if (badLevel) warnings.push(`level=${JSON.stringify(rawLevel)} must be 0–${SLICE_LEVELS - 1}`);
+  if (badSeed || badLevel) {
+    if (!badSeed && seed !== null) warnings.push(`seed=${seed} ignored`);
+    if (!badLevel && rawLevel !== null) warnings.push(`level=${level} ignored`);
+    const fallback = 'falling back to an unpinned level 0 with a random seed';
+    warnings.forEach((w, i) => (warnings[i] = `${w}; ${fallback}`));
   }
 
   if (warnings.length === 0 && seed !== null && level !== null) {
