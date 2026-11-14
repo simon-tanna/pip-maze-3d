@@ -222,7 +222,8 @@ async function boot(shell: Shell): Promise<void> {
 
   /** Dev-only per-frame hooks (the blade contact-zone overlay). */
   const devFrame: (() => void)[] = [];
-  const frame = (alpha: number) => {
+  /** Bring every view and the camera to `alpha`, without drawing. */
+  const sync = (alpha: number) => {
     const timeMs = sim.timeAt(alpha);
     const at = sim.heroPosition(alpha);
     const facing = sim.heroFacing(); // held through the death window, like the position
@@ -237,6 +238,9 @@ async function boot(shell: Shell): Promise<void> {
     hud.update(timeMs);
     iris.update(timeMs);
     rig.update({ hero: hero.object.position, poolsAtPeak: look.bench.poolsAtPeak });
+  };
+  const frame = (alpha: number) => {
+    sync(alpha);
     view.render();
   };
 
@@ -247,8 +251,10 @@ async function boot(shell: Shell): Promise<void> {
     view: {
       build: (b) => levels.build(b),
       // Every program, with the full, fixed rig and every view in the scene, once.
+      // Views and camera are synced but nothing is drawn: a render here would compile
+      // every program synchronously before compileAsync got the chance.
       precompile() {
-        frame(0);
+        sync(0);
         compiled = renderer.compileAsync(scene, camera).then(() => undefined);
         return compiled;
       },
