@@ -36,6 +36,17 @@ describe('FixedLoop.step and paused', () => {
     expect(render).toHaveBeenCalledTimes(1);
   });
 
+  it('step(ms, { render: false }) runs the same updates without rendering', () => {
+    const update = vi.fn();
+    const render = vi.fn();
+    const loop = createFixedLoop({ update, render });
+
+    loop.step(100, { render: false });
+
+    expect(update).toHaveBeenCalledTimes(6);
+    expect(render).not.toHaveBeenCalled();
+  });
+
   it('step(ms) runs ceil(ms / tick) updates, with no float drift on whole ticks', () => {
     const update = vi.fn();
     const loop = createFixedLoop({ update, render: () => {} });

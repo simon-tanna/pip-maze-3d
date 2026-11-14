@@ -4,7 +4,9 @@
  * SwiftShader frames get slow (~1 s) once a level has been walked, so these specs never
  * render per tick for long: `untilState` advances in chunks, and a recorder installed in
  * the page logs every machine transition (with sim time and the hero's tile) and every
- * iris state as they happen, tick-exact, whatever the chunk size.
+ * iris state as they happen, tick-exact, whatever the chunk size. Walks onto a chest
+ * render only their last step (`frames: 'last'`: same ticks, a fraction of the frames),
+ * and the full-run journeys are `test.slow()`: under a loaded machine they outgrew 60 s.
  */
 import type { Page } from '@playwright/test';
 import { BOOT_TIMEOUT, expect, LEVEL_0, LEVEL_1, routeMoves, test } from './fixtures/game';
@@ -94,7 +96,7 @@ async function untilState(game: GameDriver, state: State, { limit = 4000, chunk 
 /** Walk a whole route onto its chest (hazards off: they aren't lethal until 07/08). */
 async function finish(game: GameDriver, route: Route) {
   await game.hazardsOff(true);
-  const s = await game.walk(routeMoves(route));
+  const s = await game.walk(routeMoves(route), { frames: 'last' });
   expect(s).toMatchObject({ tile: route.legs[2]?.tile, machine: 'leaving' });
   return s;
 }
@@ -176,7 +178,9 @@ async function finishHolding(game: GameDriver, route: Route) {
   await game.hazardsOff(true);
   const moves = routeMoves(route);
   const [dir, n] = moves.at(-1) as Move;
-  await game.walk([...moves.slice(0, -1), ...(n > 1 ? [[dir, n - 1] as const] : [])]);
+  await game.walk([...moves.slice(0, -1), ...(n > 1 ? [[dir, n - 1] as const] : [])], {
+    frames: 'last',
+  });
   await game.press(dir);
   await game.advance(150);
   expect((await game.snapshot()).machine).toBe('leaving');
@@ -186,6 +190,7 @@ async function finishHolding(game: GameDriver, route: Route) {
 test('level 1’s chest shows the end card; a fresh key restarts the pinned level, twice', async ({
   game,
 }) => {
+  test.slow(); // two full level-1 runs
   await game.boot(LEVEL_1);
   const { page } = game;
   const card = page.locator('[data-screen="ended"]');
@@ -222,6 +227,7 @@ test('level 1’s chest shows the end card; a fresh key restarts the pinned leve
 test('unpinned: a restart logs a fresh base seed; level 1’s seed is stable within a run', async ({
   game,
 }) => {
+  test.slow(); // levels 0 and 1, then a restart
   const { page } = game;
   // The run's base-seed draws: 42 (so the shared routes apply), then 7 on restart.
   await page.addInitScript(() => {
@@ -294,6 +300,7 @@ test('no program compiles in a transition or the first 10 frames of entering; th
 test('geometries and textures return to the level-0 baseline after 0 → 1 → restart', async ({
   game,
 }) => {
+  test.slow(); // levels 0 and 1, then a restart
   await game.boot(LEVEL_0);
   await game.advance(100);
   const baseline = await memory(game.page);

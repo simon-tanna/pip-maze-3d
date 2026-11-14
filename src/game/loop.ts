@@ -20,8 +20,9 @@ export interface FixedLoop {
   /**
    * Run `ceil(ms / step)` updates directly, bypassing the frame clamp, then render once.
    * Works paused or not; drops any banked partial tick so the result is deterministic.
+   * `render: false` skips the render (e2e walks render only their last step).
    */
-  step(ms: number): void;
+  step(ms: number, opts?: { render?: boolean }): void;
 }
 
 /** Upper bound on one frame's elapsed time, so a backgrounded tab can't trigger a spiral of catch-up ticks. */
@@ -44,11 +45,11 @@ export function createFixedLoop(handlers: LoopHandlers, step = 1 / 60): FixedLoo
       }
       handlers.render(accumulator / step);
     },
-    step(ms) {
+    step(ms, { render = true } = {}) {
       const ticks = Math.max(0, Math.ceil(ms / 1000 / step - TICK_EPSILON));
       for (let i = 0; i < ticks; i++) handlers.update(step);
       accumulator = 0;
-      handlers.render(0);
+      if (render) handlers.render(0);
     },
   };
 }

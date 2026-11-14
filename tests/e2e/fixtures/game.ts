@@ -46,8 +46,12 @@ export interface GameDriver {
   pause(): Promise<void>;
   resume(): Promise<void>;
   hazardsOff(off: boolean): Promise<void>;
-  /** Walk press sequences exactly (see `walkOps`), in one round trip. Ends idle. */
-  walk(moves: readonly Move[]): Promise<SimSnapshot>;
+  /**
+   * Walk press sequences exactly (see `walkOps`), in one round trip. Ends idle.
+   * `frames: 'last'` renders only after the final step (same ticks; for long journeys,
+   * where each SwiftShader frame can cost a second under load).
+   */
+  walk(moves: readonly Move[], opts?: { frames?: 'every' | 'last' }): Promise<SimSnapshot>;
   /** The camera's world position. */
   camera(): Promise<{ x: number; y: number; z: number }>;
 }
@@ -57,13 +61,13 @@ export const BOOT_TIMEOUT = 20_000;
 
 function createDriver(page: Page): GameDriver {
   /** Run a list of `__game.sim` calls in one round trip; returns the final snapshot. */
-  const run = (calls: [method: string, arg?: unknown][]) =>
+  const run = (calls: [method: string, arg?: unknown, opts?: unknown][]) =>
     page.evaluate((list) => {
       const s = (window as unknown as DevGameWindow).__game.sim as unknown as Record<
         string,
-        (arg?: unknown) => unknown
+        (arg?: unknown, opts?: unknown) => unknown
       >;
-      for (const [method, arg] of list) s[method]?.(arg);
+      for (const [method, arg, opts] of list) s[method]?.(arg, opts);
       return (s as unknown as DevSim).snapshot();
     }, calls);
 
@@ -93,12 +97,17 @@ function createDriver(page: Page): GameDriver {
     pause: async () => void (await run([['pause']])),
     resume: async () => void (await run([['resume']])),
     hazardsOff: async (off) => void (await run([['hazardsOff', off]])),
-    walk: (moves) =>
-      run(
-        walkOps(moves).map((op: WalkOp) =>
-          op.op === 'advance' ? ['advance', op.ms] : [op.op, op.dir],
+    walk: (moves, { frames = 'every' } = {}) => {
+      const ops = walkOps(moves);
+      const last = ops.length - 1;
+      return run(
+        ops.map((op: WalkOp, i) =>
+          op.op === 'advance'
+            ? ['advance', op.ms, { render: frames === 'every' || i === last }]
+            : [op.op, op.dir],
         ),
-      ),
+      );
+    },
     camera: () =>
       page.evaluate(() => {
         const { x, y, z } = (window as unknown as DevGameWindow).__game.camera.position;
