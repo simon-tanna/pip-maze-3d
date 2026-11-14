@@ -57,6 +57,11 @@ export const CONTACT_DEPTH = { wide: 0.5, narrow: 0.125 } as const;
 
 export const CAP_VARIANTS = 3;
 export const FACE_VARIANTS = 3;
+/**
+ * The `face_slot` variant: the wall faces north and south of a blade, slotted for its
+ * haft. Placed in the face's own rng draw, so every other face keeps its variant.
+ */
+export const FACE_SLOT_VARIANT = FACE_VARIANTS;
 export const FLOOR_VARIANTS = 5;
 
 /** v2's `drawChamber` flagstone pick: variants 0–4 weighted 40/20/15/15/10. */
@@ -107,6 +112,13 @@ export const PLAN_CAPACITY: Readonly<Record<ChamberPiece, number>> = planCapacit
 export function planChamber(level: Level, seed: number): Placement[] {
   const { map } = level;
   const out: Placement[] = [];
+  // Wall faces that look at a blade tile: the south face of the wall north of it, and the
+  // north face of the wall south of it.
+  const slots = new Set(
+    level.traps
+      .filter((t) => t.type === 'blade')
+      .flatMap((b) => [`${b.col},${b.row - 1},s`, `${b.col},${b.row + 1},n`]),
+  );
   map.forEach((cells, row) =>
     cells.forEach((v, col) => {
       const rng = tileRng(seed, col, row);
@@ -120,7 +132,8 @@ export function planChamber(level: Level, seed: number): Placement[] {
         });
         const mask = wallMask(map, col, row);
         for (const side of SIDES) {
-          const variant = Math.floor(rng() * FACE_VARIANTS);
+          const drawn = Math.floor(rng() * FACE_VARIANTS);
+          const variant = slots.has(`${col},${row},${side}`) ? FACE_SLOT_VARIANT : drawn;
           if (mask & OPEN[side]) {
             out.push({ piece: 'face', variant, col, row, rotation: ROTATION[side], side });
           }

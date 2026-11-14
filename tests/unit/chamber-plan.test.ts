@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { generateLevel, tileRng } from '@core/generator';
-import { CONTACT_DEPTH, PADDING, PLAN_CAPACITY, planChamber, SIDE_STEP } from '@core/chamber-plan';
+import {
+  CONTACT_DEPTH,
+  FACE_SLOT_VARIANT,
+  FACE_VARIANTS,
+  PADDING,
+  PLAN_CAPACITY,
+  planChamber,
+  SIDE_STEP,
+} from '@core/chamber-plan';
 import type { ChamberPiece, Side } from '@core/chamber-plan';
 import type { Level } from '@core/generator';
 import baseline from '../fixtures/generator-baseline.json';
@@ -124,6 +132,24 @@ describe('planChamber', () => {
       expect(p.depth).toBe(wide ? CONTACT_DEPTH.wide : CONTACT_DEPTH.narrow);
     }
     expect(CONTACT_DEPTH.wide).toBeGreaterThan(CONTACT_DEPTH.narrow);
+  });
+
+  it('slots the wall faces north and south of each blade, and only those', () => {
+    const blades = level.traps.filter((t) => t.type === 'blade');
+    expect(blades.length).toBeGreaterThan(0);
+    const slots = at('face').filter((f) => f.variant === FACE_SLOT_VARIANT);
+    const expected = blades.flatMap((b) => [`${b.col},${b.row - 1},s`, `${b.col},${b.row + 1},n`]);
+    expect(slots.map((f) => `${f.col},${f.row},${f.side}`).sort()).toEqual(expected.sort());
+    // Every other face keeps the variant it had without blades.
+    const bare = planChamber({ ...level, traps: [] }, SEED);
+    expect(bare.some((f) => f.piece === 'face' && f.variant === FACE_SLOT_VARIANT)).toBe(false);
+    const other = (p: typeof plan) =>
+      p.filter((f) => !(f.piece === 'face' && f.variant === FACE_SLOT_VARIANT));
+    const slotted = new Set(expected);
+    expect(other(plan)).toEqual(
+      bare.filter((f) => !(f.piece === 'face' && slotted.has(`${f.col},${f.row},${f.side}`))),
+    );
+    expect(FACE_SLOT_VARIANT).toBe(FACE_VARIANTS);
   });
 
   it('never exceeds PLAN_CAPACITY, on the baseline seeds or on worst-case 40×15 maps', () => {

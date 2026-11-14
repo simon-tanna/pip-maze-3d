@@ -37,7 +37,7 @@ export type KitNode = (typeof KIT_NODES)[number];
 /** Kit node for each (piece, variant) a chamber plan can name, in variant order. */
 export const CHAMBER_KIT_VARIANTS = {
   cap: ['cap_0', 'cap_1', 'cap_2'],
-  face: ['face_0', 'face_1', 'face_2'],
+  face: ['face_0', 'face_1', 'face_2', 'face_slot'], // FACE_SLOT_VARIANT last
   floor: ['floor_0', 'floor_1', 'floor_2', 'floor_3', 'floor_4'],
   contact: ['contact'],
 } as const satisfies Record<string, readonly KitNode[]>;
