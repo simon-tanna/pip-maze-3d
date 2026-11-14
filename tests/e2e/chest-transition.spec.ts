@@ -11,6 +11,7 @@
 import type { Page } from '@playwright/test';
 import { BOOT_TIMEOUT, expect, LEVEL_0, LEVEL_1, routeMoves, test } from './fixtures/game';
 import type { DevGameWindow, GameDriver, Move, Route, SimSnapshot } from './fixtures/game';
+import { CHAMBER_KIT } from '../../src/render/chamber-kit';
 
 const TICK = 1000 / 60;
 const CHEST_DELAY_MS = 350; // TRANSITION_TIMING.chestDelayMs
@@ -333,7 +334,7 @@ test.describe('under reduced motion', () => {
 });
 
 test('a GLB 404 reaches data-ready="error" with the error in #hud', async ({ page }) => {
-  await page.route('**/models/placeholders/chamber.glb', (route) =>
+  await page.route(`**/models/${CHAMBER_KIT}.glb`, (route) =>
     route.fulfill({ status: 404, body: 'not found' }),
   );
   await page.goto(`/${LEVEL_0.query}`);
@@ -346,7 +347,7 @@ test('a GLB 404 reaches data-ready="error" with the error in #hud', async ({ pag
 test('"Loading…" shows on INK until the GLBs arrive', async ({ page }) => {
   let release: () => void = () => {};
   const held = new Promise<void>((r) => (release = r));
-  await page.route('**/models/placeholders/chamber.glb', async (route) => {
+  await page.route(`**/models/${CHAMBER_KIT}.glb`, async (route) => {
     await held;
     await route.continue();
   });

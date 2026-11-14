@@ -103,8 +103,9 @@ test('the slice: key, a flame death and respawn, the chest past the blade, level
   await game.boot(LEVEL_0);
   await record(page);
 
-  // Level 0, hazards live: coin and key (these legs cross no hazard).
-  const atKey = await game.walk(routeMoves(LEVEL_0, 'key'));
+  // Level 0, hazards live: coin and key (these legs cross no hazard). Long journeys render
+  // only their last step: the same ticks, but each textured SwiftShader frame is costly.
+  const atKey = await game.walk(routeMoves(LEVEL_0, 'key'), { frames: 'last' });
   expect(atKey).toMatchObject({ tile: LEVEL_0.legs[1]?.tile, keys: 1, coins: 1, dying: false });
 
   // Die on the known flame: wait beside it for its go-live, then step on.
@@ -137,7 +138,7 @@ test('the slice: key, a flame death and respawn, the chest past the blade, level
   expect(await types(page)).toContain('respawned');
 
   // The route again: the key is back, then the chest leg up to the blade.
-  const again = await game.walk(routeMoves(LEVEL_0, 'key'));
+  const again = await game.walk(routeMoves(LEVEL_0, 'key'), { frames: 'last' });
   expect(again).toMatchObject({ tile: LEVEL_0.legs[1]?.tile, keys: 1, coins: 1 });
   const atBlade = await game.walk(TO_BESIDE_BLADE);
   expect(atBlade).toMatchObject({ tile: { col: BLADE.col - 1, row: BLADE.row }, dying: false });
@@ -162,7 +163,7 @@ test('the slice: key, a flame death and respawn, the chest past the blade, level
 
   // Level 1 to its chest (hazards off: see the header), then the end card.
   await game.hazardsOff(true);
-  const done = await game.walk(routeMoves(LEVEL_1));
+  const done = await game.walk(routeMoves(LEVEL_1), { frames: 'last' });
   expect(done).toMatchObject({ tile: LEVEL_1.legs[2]?.tile, machine: 'leaving' });
   await game.hazardsOff(false);
   await untilState(game, 'ended');

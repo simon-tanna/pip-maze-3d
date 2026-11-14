@@ -7,16 +7,24 @@
  *   `cap_slot` has a north–south slot through x = 0, the full tile deep, for a blade's
  *   swing (it reaches ~1.6 m into the wall tile beside it, at the cap's height).
  * - `face_*`, `face_slot`: the wall side that looks south (+z), inside the tile, from the
- *   floor up to the cap. Chamber placements rotate local +z towards the open neighbour.
+ *   floor up to the cap. Only its cap lip (above `LIP_BOTTOM`) reaches past the tile edge,
+ *   by at most `LIP_REACH`, with 45° mitred ends so outer corners close without corner
+ *   pieces. Chamber placements rotate local +z towards the open neighbour.
  * - `floor_*`: a flagstone, flat at y = 0 over the whole tile.
  * - `contact`: a strip whose wall edge is z = 0, reaching 1 m back to z = −1, just above
  *   the floor; uv.y runs 0 at the wall edge to 1 at the far edge. Placements scale z to
  *   the plan's `depth` and rotate local +z towards the wall.
  */
-export const CHAMBER_KIT = 'placeholders/chamber';
+export const CHAMBER_KIT = 'kit/chamber';
 
-/** Metres from floor to cap top. Kept in sync with `WALL_HEIGHT` in build_placeholders.py. */
+/** Metres from floor to cap top. Kept in sync with `WALL_HEIGHT` in blender/scripts/lib/kit.py. */
 export const WALL_HEIGHT = 2.2;
+
+/** The cap lip's most reach past the face's tile edge, over the floor (metres). */
+export const LIP_REACH = 0.05;
+
+/** Below this height (metres) a face stays inside its wall tile. Mirrors build_chamber_kit.py. */
+export const LIP_BOTTOM = 2.06;
 
 export const KIT_NODES = [
   'cap_0',
