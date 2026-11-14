@@ -1,7 +1,7 @@
 import { PerspectiveCamera, Scene, Timer, Vector3 } from 'three';
 import type { Camera, Light } from 'three';
 import type { WorldXZ } from '@core/grid';
-import { loadGltf } from '@assets/models';
+import { loadCharacter, loadGltf } from '@assets/models';
 import { planChamber } from '@core/chamber-plan';
 import { mazeBounds, tileToWorld } from '@core/grid';
 import { resolveRun } from '@core/run-seed';
@@ -17,7 +17,7 @@ import { createChamberView } from '@render/chamber';
 import { CHAMBER_KIT } from '@render/chamber-kit';
 import { createFlamesView } from '@render/flames';
 import { createFrameStats } from '@render/frame-stats';
-import { createHeroView } from '@render/hero';
+import { createHeroView, HERO_MODEL, heroFrame } from '@render/hero';
 import { createLevelViews } from '@render/level-views';
 import { createLightRig, createPaletteEnvironment } from '@render/lights';
 import { createPickupsView } from '@render/pickups';
@@ -149,7 +149,7 @@ async function boot(shell: Shell): Promise<void> {
   const run = resolveRun(new URLSearchParams(location.search), drawSeed);
   for (const warning of run.warnings) console.warn(`[run] ${warning}`);
   logRun(run);
-  const kit = await loadGltf(CHAMBER_KIT);
+  const [kit, pip] = await Promise.all([loadGltf(CHAMBER_KIT), loadCharacter(HERO_MODEL)]);
   screens.hide(); // the iris stays shut until the first chamber is built
 
   const session = createSession();
@@ -164,7 +164,7 @@ async function boot(shell: Shell): Promise<void> {
   scene.add(flames.group);
   const blades = createBladesView();
   scene.add(blades.group);
-  const hero = createHeroView();
+  const hero = createHeroView(pip);
   scene.add(hero.object);
   const cameraRig = createCameraRig(camera);
 
@@ -225,10 +225,9 @@ async function boot(shell: Shell): Promise<void> {
   /** Bring every view and the camera to `alpha`, without drawing. */
   const sync = (alpha: number) => {
     const timeMs = sim.timeAt(alpha);
-    const at = sim.heroPosition(alpha);
-    const facing = sim.heroFacing(); // held through the death window, like the position
-    hero.update(at, facing, timeMs);
-    cameraRig.update(at, facing, timeMs);
+    const h = heroFrame(sim, alpha);
+    hero.update(h);
+    cameraRig.update(h.position, h.facing, timeMs);
     scene.environmentIntensity = look.lights.envIntensity;
     chamber.update();
     pickups.update(sim);
@@ -327,6 +326,7 @@ async function boot(shell: Shell): Promise<void> {
         blades,
         bladeZone: zone,
         hero: hero.object,
+        heroView: hero,
         cameraRig,
         sim: createDevSim(sim, loop, director),
       },

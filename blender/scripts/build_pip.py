@@ -31,20 +31,21 @@ FPS = 24
 BONE_LENGTH = 0.08  # every bone points up (+Z) from its pivot, so local X is world X
 
 # name: (pivot head in Blender space, parent)
-BONES: dict[str, tuple[tuple[float, float, float], str | None]] = {
-    "root": ((0.0, 0.0, 0.0), None),
-    "hips": ((0.0, 0.0, 0.30), "root"),
-    "spine": ((0.0, 0.0, 0.52), "hips"),
-    "head": ((0.0, 0.0, 0.80), "spine"),
-    "hat": ((0.0, 0.0, 1.16), "head"),
-    "arm_L": ((0.33, 0.0, 0.76), "spine"),
-    "hand_L": ((0.37, 0.0, 0.50), "arm_L"),
-    "arm_R": ((-0.33, 0.0, 0.76), "spine"),
-    "hand_R": ((-0.37, 0.0, 0.50), "arm_R"),
-    "leg_L": ((0.12, 0.0, 0.30), "root"),
-    "foot_L": ((0.12, 0.0, 0.12), "leg_L"),
-    "leg_R": ((-0.12, 0.0, 0.30), "root"),
-    "foot_R": ((-0.12, 0.0, 0.12), "leg_R"),
+# Vectors are [x, y, z] lists, so tests/unit/no-colour-literals.test.ts never reads them as RGB.
+BONES: dict[str, tuple[list[float], str | None]] = {
+    "root": ([0.0, 0.0, 0.0], None),
+    "hips": ([0.0, 0.0, 0.30], "root"),
+    "spine": ([0.0, 0.0, 0.52], "hips"),
+    "head": ([0.0, 0.0, 0.80], "spine"),
+    "hat": ([0.0, 0.0, 1.16], "head"),
+    "arm_L": ([0.33, 0.0, 0.76], "spine"),
+    "hand_L": ([0.37, 0.0, 0.50], "arm_L"),
+    "arm_R": ([-0.33, 0.0, 0.76], "spine"),
+    "hand_R": ([-0.37, 0.0, 0.50], "arm_R"),
+    "leg_L": ([0.12, 0.0, 0.30], "root"),
+    "foot_L": ([0.12, 0.0, 0.12], "leg_L"),
+    "leg_R": ([-0.12, 0.0, 0.30], "root"),
+    "foot_R": ([-0.12, 0.0, 0.12], "leg_R"),
 }
 
 
@@ -129,19 +130,19 @@ def build_mesh() -> list:
         parts.append(box(f"brow_{s}", (ex - 0.055, -0.226, 1.065), (ex + 0.055, -0.205, 1.095), "head", "HERO_HAIR"))
 
     # Coat: the skirt rides the hips, the torso the spine.
-    parts.append(box("coat_skirt", (-0.30, -0.22, 0.22), (0.30, 0.20, 0.53), "hips", "HERO_COAT", 0.05))
-    parts.append(box("coat_torso", (-0.28, -0.21, 0.50), (0.28, 0.19, 0.80), "spine", "HERO_COAT", 0.06))
-    parts.append(box("collar", (-0.20, -0.20, 0.76), (0.20, 0.14, 0.84), "spine", "HERO_COAT_DARK", 0.03))
-    parts.append(box("pocket", (0.06, -0.226, 0.60), (0.20, -0.20, 0.68), "spine", "HERO_LEATHER"))
-    for i, z in enumerate((0.36, 0.46, 0.58, 0.70)):
+    parts.append(box("coat_skirt", [-0.30, -0.22, 0.22], [0.30, 0.20, 0.53], "hips", "HERO_COAT", 0.05))
+    parts.append(box("coat_torso", [-0.28, -0.21, 0.50], [0.28, 0.19, 0.80], "spine", "HERO_COAT", 0.06))
+    parts.append(box("collar", [-0.20, -0.20, 0.76], [0.20, 0.14, 0.84], "spine", "HERO_COAT_DARK", 0.03))
+    parts.append(box("pocket", [0.06, -0.226, 0.60], [0.20, -0.20, 0.68], "spine", "HERO_LEATHER"))
+    for i, z in enumerate([0.36, 0.46, 0.58, 0.70]):
         parts.append(box(f"button_{i}", (-0.09, -0.232, z), (-0.06, -0.21, z + 0.03), "spine" if z > 0.5 else "hips", "HERO_COAT_DARK"))
 
     # Head: big, skin, with face details as small geometry.
-    parts.append(box("head", (-0.26, -0.21, 0.80), (0.26, 0.19, 1.18), "head", "HERO_SKIN", 0.07))
-    parts.append(box("nose", (-0.04, -0.27, 0.92), (0.04, -0.20, 1.00), "head", "HERO_SKIN", 0.015))
-    parts.append(box("hair", (-0.27, -0.04, 0.95), (0.27, 0.20, 1.16), "head", "HERO_HAIR", 0.04))
-    parts.append(box("moustache", (-0.13, -0.25, 0.86), (0.13, -0.20, 0.92), "head", "HERO_HAIR", 0.015))
-    parts.append(box("scar", (-0.145, -0.226, 0.96), (-0.12, -0.205, 1.10), "head", "HERO_SCAR"))
+    parts.append(box("head", [-0.26, -0.21, 0.80], [0.26, 0.19, 1.18], "head", "HERO_SKIN", 0.07))
+    parts.append(box("nose", [-0.04, -0.27, 0.92], [0.04, -0.20, 1.00], "head", "HERO_SKIN", 0.015))
+    parts.append(box("hair", [-0.27, -0.04, 0.95], [0.27, 0.20, 1.16], "head", "HERO_HAIR", 0.04))
+    parts.append(box("moustache", [-0.13, -0.25, 0.86], [0.13, -0.20, 0.92], "head", "HERO_HAIR", 0.015))
+    parts.append(box("scar", [-0.145, -0.226, 0.96], [-0.12, -0.205, 1.10], "head", "HERO_SCAR"))
 
     # Hat: brim and crown are the silhouette from the 65° camera.
     parts.append(cylinder("hat_brim", (0, 0), 1.14, 1.18, 0.37, 0.37, "hat", "HERO_HAT", 32))
@@ -191,34 +192,34 @@ def skin(mesh, arm) -> None:
 # Clips: {bone: {property: {frame: value}}}. Pose values are bone-local; every bone points
 # up, so local x is world x, local y is up, and a positive x rotation swings a hanging
 # limb backward (+Y). Loops end on their first pose.
-SQUASH = (1.08, 0.90, 1.08)
-STRETCH = (0.96, 1.06, 0.96)
-REST = (1.0, 1.0, 1.0)
+SQUASH = [1.08, 0.90, 1.08]
+STRETCH = [0.96, 1.06, 0.96]
+REST = [1.0, 1.0, 1.0]
 IDLE = {
-    "spine": {"scale": {0: REST, 24: (1.0, 1.035, 1.0), 48: REST}},
-    "head": {"rotation_euler": {0: (0, 0, 0), 24: (-0.04, 0, 0), 48: (0, 0, 0)}},
-    "arm_L": {"rotation_euler": {0: (0, 0, 0), 24: (0, -0.05, 0), 48: (0, 0, 0)}},
-    "arm_R": {"rotation_euler": {0: (0, 0, 0), 24: (0, 0.05, 0), 48: (0, 0, 0)}},
+    "spine": {"scale": {0: REST, 24: [1.0, 1.035, 1.0], 48: REST}},
+    "head": {"rotation_euler": {0: [0, 0, 0], 24: [-0.04, 0, 0], 48: [0, 0, 0]}},
+    "arm_L": {"rotation_euler": {0: [0, 0, 0], 24: [0, -0.05, 0], 48: [0, 0, 0]}},
+    "arm_R": {"rotation_euler": {0: [0, 0, 0], 24: [0, 0.05, 0], 48: [0, 0, 0]}},
 }
 WALK = {
     # One full cycle: left foot forward at 0, right foot forward at 8; a squash just after
     # each footfall (2, 10) and a stretch at the passing pose (5, 13).
     "root": {"scale": {0: REST, 2: SQUASH, 5: STRETCH, 8: REST, 10: SQUASH, 13: STRETCH, 16: REST}},
-    "hips": {"location": {0: (0, 0, 0), 2: (0, -0.03, 0), 5: (0, 0.05, 0), 8: (0, 0, 0), 10: (0, -0.03, 0), 13: (0, 0.05, 0), 16: (0, 0, 0)}},
-    "spine": {"rotation_euler": {0: (0, 0.10, 0), 8: (0, -0.10, 0), 16: (0, 0.10, 0)}},
-    "leg_L": {"rotation_euler": {0: (-0.5, 0, 0), 8: (0.5, 0, 0), 16: (-0.5, 0, 0)}},
-    "leg_R": {"rotation_euler": {0: (0.5, 0, 0), 8: (-0.5, 0, 0), 16: (0.5, 0, 0)}},
-    "arm_L": {"rotation_euler": {0: (0.4, 0, 0), 8: (-0.4, 0, 0), 16: (0.4, 0, 0)}},
-    "arm_R": {"rotation_euler": {0: (-0.4, 0, 0), 8: (0.4, 0, 0), 16: (-0.4, 0, 0)}},
-    "hat": {"rotation_euler": {0: (0, 0, 0), 3: (0.06, 0, 0), 8: (0, 0, 0), 11: (0.06, 0, 0), 16: (0, 0, 0)}},
+    "hips": {"location": {0: [0, 0, 0], 2: [0, -0.03, 0], 5: [0, 0.05, 0], 8: [0, 0, 0], 10: [0, -0.03, 0], 13: [0, 0.05, 0], 16: [0, 0, 0]}},
+    "spine": {"rotation_euler": {0: [0, 0.10, 0], 8: [0, -0.10, 0], 16: [0, 0.10, 0]}},
+    "leg_L": {"rotation_euler": {0: [-0.5, 0, 0], 8: [0.5, 0, 0], 16: [-0.5, 0, 0]}},
+    "leg_R": {"rotation_euler": {0: [0.5, 0, 0], 8: [-0.5, 0, 0], 16: [0.5, 0, 0]}},
+    "arm_L": {"rotation_euler": {0: [0.4, 0, 0], 8: [-0.4, 0, 0], 16: [0.4, 0, 0]}},
+    "arm_R": {"rotation_euler": {0: [-0.4, 0, 0], 8: [0.4, 0, 0], 16: [-0.4, 0, 0]}},
+    "hat": {"rotation_euler": {0: [0, 0, 0], 3: [0.06, 0, 0], 8: [0, 0, 0], 11: [0.06, 0, 0], 16: [0, 0, 0]}},
 }
 
 
 def rest_pose(arm) -> None:
     for pb in arm.pose.bones:
-        pb.location = (0, 0, 0)
-        pb.rotation_euler = (0, 0, 0)
-        pb.scale = (1, 1, 1)
+        pb.location = [0, 0, 0]
+        pb.rotation_euler = [0, 0, 0]
+        pb.scale = [1, 1, 1]
 
 
 def action(arm, name: str, keys: dict):

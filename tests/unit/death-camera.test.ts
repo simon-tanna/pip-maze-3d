@@ -1,11 +1,19 @@
 import { PerspectiveCamera } from 'three';
-import { describe, expect, it } from 'vitest';
+import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { instantiateCharacter } from '@assets/models';
 import { tileToWorld } from '@core/grid';
 import { createSession, createSim, DEATH_TIMING, TICK_MS } from '@game/sim';
 import { createGameState } from '@game/state';
 import { createCameraRig } from '@render/camera-rig';
-import { createHeroView, facingYaw } from '@render/hero';
+import { createHeroView, facingYaw, heroFrame, HERO_MODEL } from '@render/hero';
 import { look } from '@render/look';
+import { parseModel } from './support/glb';
+
+let pipGltf: GLTF;
+beforeAll(async () => {
+  pipGltf = await parseModel(HERO_MODEL);
+});
 
 // Start (1,1); a flame at (2,1) goes live at 1500 ms (phase 1000).
 const MAP = [
@@ -29,14 +37,12 @@ function setup() {
   machine.go('entering');
   machine.go('playing');
   const rig = createCameraRig(new PerspectiveCamera());
-  const hero = createHeroView();
+  const hero = createHeroView(instantiateCharacter(pipGltf));
   sim.on('respawned', () => rig.resetLag());
   const frame = () => {
-    const at = sim.heroPosition(0);
-    const facing = sim.heroFacing();
-    const t = sim.timeAt(0);
-    hero.update(at, facing, t);
-    rig.update(at, facing, t);
+    const f = heroFrame(sim, 0);
+    hero.update(f);
+    rig.update(f.position, f.facing, f.timeMs);
   };
   const tick = () => {
     sim.update();

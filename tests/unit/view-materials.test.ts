@@ -1,12 +1,15 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { Box3 } from 'three';
-import type { BufferAttribute, Mesh, MeshStandardMaterial, Object3D } from 'three';
-import { BODY_CAPSULE } from '@core/blade';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { ShaderLib } from 'three';
+import type { Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D } from 'three';
+import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
+import { instantiateCharacter } from '@assets/models';
 import { createBladesView } from '@render/blades';
 import { createFlamesView } from '@render/flames';
-import { createHeroView } from '@render/hero';
+import { createHeroView, HERO_MODEL } from '@render/hero';
 import { look } from '@render/look';
+import { color } from '@render/palette';
 import { createPickupsView } from '@render/pickups';
+import { parseModel } from './support/glb';
 
 /** Material feel numbers live in `look` (and so in the dev panel): views follow them live. */
 
@@ -15,6 +18,11 @@ const mat = (o: Object3D | undefined) => {
   return (o as Mesh).material as MeshStandardMaterial;
 };
 const named = (root: Object3D, name: string) => root.getObjectByName(name);
+
+let pipGltf: GLTF;
+beforeAll(async () => {
+  pipGltf = await parseModel(HERO_MODEL);
+});
 
 const saved = structuredClone({
   hero: look.hero,
@@ -30,22 +38,50 @@ afterEach(() => {
 });
 
 describe('view materials follow look', () => {
-  it('hero: body and nose roughness', () => {
-    const hero = createHeroView();
+  it('hero: Pip roughness, the CREAM rim and the INK blob follow look', () => {
+    const hero = createHeroView(instantiateCharacter(pipGltf));
     look.hero.roughness = 0.33;
-    hero.update({ x: 0, z: 0 }, 'south', 0);
-    for (const part of hero.object.children) expect(mat(part).roughness).toBe(0.33);
-  });
+    look.hero.rimStrength = 0.9;
+    look.hero.rimPower = 4.5;
+    look.hero.blobRadius = 0.6;
+    look.hero.blobOpacity = 0.4;
+    hero.update({
+      position: { x: 0, z: 0 },
+      facing: 'south',
+      timeMs: 0,
+      moving: false,
+      dying: false,
+    });
 
-  it('hero: the drawn capsule is the contact capsule', () => {
-    const hero = createHeroView();
-    hero.update({ x: 0, z: 0 }, 'south', 0);
-    const body = hero.object.children[0] as Mesh;
-    const box = new Box3().setFromBufferAttribute(
-      body.geometry.getAttribute('position') as BufferAttribute,
-    );
-    expect(box.max.x).toBeCloseTo(BODY_CAPSULE.radius, 6);
-    expect(box.max.y - box.min.y).toBeCloseTo(BODY_CAPSULE.height, 6);
+    const pip = named(hero.object, 'pip');
+    const meshes: Mesh[] = [];
+    pip?.traverse((o) => {
+      if ((o as Mesh).isMesh) meshes.push(o as Mesh);
+    });
+    expect(meshes.length).toBeGreaterThan(0);
+    for (const m of meshes) {
+      const material = m.material as MeshStandardMaterial;
+      expect(material.roughness).toBe(0.33);
+      // The rim patch compiles into the standard shader, with live uniforms.
+      const shader = {
+        uniforms: {} as Record<string, { value: unknown }>,
+        vertexShader: ShaderLib.standard.vertexShader,
+        fragmentShader: ShaderLib.standard.fragmentShader,
+      };
+      material.onBeforeCompile(shader as never, null as never);
+      expect(shader.fragmentShader).toContain('rimFresnel');
+      expect(shader.fragmentShader).toContain('uniform vec3 rimColor');
+      expect(shader.uniforms['rimColor']?.value).toEqual(color('CREAM'));
+      expect(shader.uniforms['rimStrength']?.value).toBe(0.9);
+      expect(shader.uniforms['rimPower']?.value).toBe(4.5);
+    }
+
+    const blob = named(hero.object, 'blob') as Mesh;
+    const blobMat = blob.material as MeshBasicMaterial;
+    expect(blobMat.color).toEqual(color('INK'));
+    expect(blobMat.opacity).toBe(0.4);
+    expect(blob.scale.x).toBeCloseTo(1.2, 9);
+    expect(blob.castShadow).toBe(false);
   });
 
   it('blades: lintel stone roughness and steel metalness', () => {
