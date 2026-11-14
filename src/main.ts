@@ -6,15 +6,18 @@ import { planChamber } from '@core/chamber-plan';
 import { generateLevel } from '@core/generator';
 import { mazeBounds, tileToWorld } from '@core/grid';
 import { resolveRun } from '@core/run-seed';
-import { bindKeyboard } from '@game/keyboard';
+import type { RunStart } from '@core/run-seed';
+import { bindKeyboard, bindRestart } from '@game/keyboard';
 import { createFixedLoop } from '@game/loop';
 import { createSession, createSim } from '@game/sim';
-import { createGameState } from '@game/state';
+import { createDirector, createGameState } from '@game/state';
+import type { GameState } from '@game/state';
 import { createCameraRig } from '@render/camera-rig';
 import { createChamberView } from '@render/chamber';
 import { CHAMBER_KIT } from '@render/chamber-kit';
 import { createFrameStats } from '@render/frame-stats';
 import { createHeroView } from '@render/hero';
+import { createLevelViews } from '@render/level-views';
 import { createLightRig, createPaletteEnvironment } from '@render/lights';
 import { createPickupsView } from '@render/pickups';
 import { look } from '@render/look';
@@ -22,6 +25,10 @@ import { LIGHT, P, color } from '@render/palette';
 import { createRenderer } from '@render/renderer';
 import { createRigGuard } from '@render/rig-guard';
 import { createHud } from '@ui/hud';
+import { createIris } from '@ui/iris';
+import type { Iris } from '@ui/iris';
+import { createScreens } from '@ui/screens';
+import type { Screens } from '@ui/screens';
 import './style.css';
 
 /** Expose every palette colour to CSS as `--kebab-name` (e.g. `--ink`, `--gold-light`). */
@@ -41,8 +48,8 @@ function countLiveLights(scene: Scene): number {
 }
 
 /**
- * World → CSS pixels for the HUD (`src/ui` never imports three.js). Pickups float at
- * `look.pickups.floatHeight`. Null when the point is outside the view volume.
+ * World → CSS pixels for the HUD and the iris (`src/ui` never imports three.js). Points
+ * sit at `look.pickups.floatHeight`. Null when the point is outside the view volume.
  */
 function createProjector(camera: Camera, canvas: HTMLElement) {
   const v = new Vector3();
@@ -61,84 +68,147 @@ function drawSeed(): number {
   return crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
 }
 
+/** The console line e2e and humans read a run's seeds from. */
+function logRun(run: RunStart): void {
+  console.info(
+    `[run] base seed ${run.base}${run.pinned ? ' (pinned)' : ''}; level ${run.level}, seed ${run.seed}`,
+  );
+}
+
+interface Shell {
+  container: HTMLElement;
+  machine: GameState;
+  hudLayer: HTMLElement;
+  iris: Iris;
+  screens: Screens;
+  scene: Scene;
+  camera: PerspectiveCamera;
+  project: ReturnType<typeof createProjector>;
+  /** When a HUD or iris animation starts: the simulation tick time (set once the sim exists). */
+  clock: { now(): number };
+  showError(err: unknown): void;
+}
+
 /**
- * Boot: the state machine walks `loading → building → entering → playing` (instant
- * transitions until ticket 06). The run's first level is built as a chamber on the
- * placeholder kit, under the fixed light rig and post chain, and a capsule hero walks it
- * on the grid with the arrows or WASD while the chase camera follows.
+ * What exists before anything loads: the machine, the scene and camera, and `#hud`'s
+ * layers (bottom to top: the HUD, the iris, the full-screen cards), with "Loading…" up.
  */
-async function boot(): Promise<void> {
+function createShell(): Shell {
   const container = document.getElementById('game');
   if (!container) throw new Error('#game container missing from index.html');
+  const hudRoot = document.getElementById('hud');
+  if (!hudRoot) throw new Error('#hud missing from index.html');
   paletteToCss();
-  const machine = createGameState();
+
+  const hudLayer = document.createElement('div');
+  const overlay = document.createElement('div');
+  hudRoot.replaceChildren(hudLayer, overlay);
 
   const scene = new Scene();
   scene.background = color('INK');
-
   const cam = look.camera;
   const camera = new PerspectiveCamera(cam.fov, 1, cam.near, cam.far);
+  const project = createProjector(camera, container);
+  const clock = { now: () => 0 };
+  const iris = createIris({ root: overlay, now: () => clock.now(), project });
+  const screens = createScreens(overlay);
+  screens.loading();
+
+  return {
+    container,
+    machine: createGameState(),
+    hudLayer,
+    iris,
+    screens,
+    scene,
+    camera,
+    project,
+    clock,
+    showError(err) {
+      console.error(err);
+      screens.error(err instanceof Error ? err.message : String(err));
+      document.body.dataset['ready'] = 'error';
+    },
+  };
+}
+
+/**
+ * Boot. `#hud` shows "Loading…" on INK while the GLBs load; then the director
+ * (`@game/state`) runs the machine on the fixed loop: `building` (behind the shut iris) →
+ * `entering` (the iris opens on the hero) → `playing` → `leaving` (the chest opens, the
+ * iris closes on it) → the next level, or the end card after the last slice level.
+ */
+async function boot(shell: Shell): Promise<void> {
+  const { container, machine, hudLayer, iris, screens, scene, camera, project, clock } = shell;
   const view = createRenderer(container, scene, camera);
   const { renderer } = view;
-
   scene.environment = createPaletteEnvironment(renderer);
   const rig = createLightRig(scene);
 
   const run = resolveRun(new URLSearchParams(location.search), drawSeed);
   for (const warning of run.warnings) console.warn(`[run] ${warning}`);
-  console.info(
-    `[run] base seed ${run.base}${run.pinned ? ' (pinned)' : ''}; level ${run.level}, seed ${run.seed}`,
-  );
+  logRun(run);
   const kit = await loadGltf(CHAMBER_KIT);
+  screens.hide(); // the iris stays shut until the first chamber is built
 
-  machine.go('building');
-  const level = generateLevel(run.level, run.seed);
-  const chamber = createChamberView(kit);
-  chamber.build(planChamber(level, run.seed));
-  scene.add(chamber.group);
-  const cols = level.map[0]?.length ?? 0;
-  rig.fitShadowTo(mazeBounds(cols, level.map.length)); // the map, not the padding
-
+  const first = generateLevel(run.level, run.seed);
   const session = createSession();
-  const sim = createSim({ map: level.map, machine, pickups: level, session });
+  const sim = createSim({ map: first.map, machine, pickups: first, session });
+  clock.now = () => sim.timeAt(0);
+  const chamber = createChamberView(kit);
+  scene.add(chamber.group);
   const pickups = createPickupsView();
-  pickups.build(level);
   scene.add(pickups.group);
+  const hero = createHeroView();
+  scene.add(hero.object);
+  const cameraRig = createCameraRig(camera);
 
-  const hudRoot = document.getElementById('hud');
-  if (!hudRoot) throw new Error('#hud missing from index.html');
   const hud = createHud({
-    root: hudRoot,
-    now: () => sim.snapshot().simMs,
-    project: createProjector(camera, renderer.domElement),
+    root: hudLayer,
+    now: () => clock.now(),
+    project,
     keys: () => sim.snapshot().keys,
     timing: look.hud,
     reducedMotion: () => reducedMotion.matches,
     coins: session.coins,
   });
-  hud.level({ index: run.level, requiredKeys: sim.snapshot().requiredKeys });
   sim.on('coin', (e) => hud.coin(e));
   sim.on('key', (e) => hud.key(e));
   sim.on('keyLost', () => hud.keyLost());
   sim.on('chestLocked', () => hud.toast('Find the key first!'));
-  const hero = createHeroView();
-  scene.add(hero.object);
-  const cameraRig = createCameraRig(camera);
-  cameraRig.resetLag();
+  sim.on('chestOpened', () => pickups.openChest());
 
-  // Light bench: the 4 pool slots sit around the start tile, in view.
-  const start = sim.snapshot().tile;
-  rig.pools.forEach((pool, i) => {
-    const [dc, dr] = (
-      [
-        [-2, 0],
-        [2, 0],
-        [0, -2],
-        [0, 2],
-      ] as const
-    )[i % 4] ?? [0, 0];
-    const { x, z } = tileToWorld(start.col + dc, start.row + dr);
-    pool.position.set(x, look.lights.poolHeight, z);
+  // Per-level views, torn down and rebuilt behind INK on every `building`.
+  const levels = createLevelViews();
+  levels.add({
+    build({ level, seed }) {
+      chamber.build(planChamber(level, seed)); // instance counts only
+      const cols = level.map[0]?.length ?? 0;
+      rig.fitShadowTo(mazeBounds(cols, level.map.length)); // the map, not the padding
+    },
+  });
+  levels.add({ build: ({ level }) => pickups.build(level), teardown: pickups.teardown });
+  levels.add({
+    build: ({ index }) => hud.level({ index, requiredKeys: sim.snapshot().requiredKeys }),
+  });
+  levels.add({
+    // Light bench: the 4 pool slots sit around the start tile, in view. They move; the
+    // rig itself never changes.
+    build() {
+      const start = sim.snapshot().tile;
+      rig.pools.forEach((pool, i) => {
+        const [dc, dr] = (
+          [
+            [-2, 0],
+            [2, 0],
+            [0, -2],
+            [0, 2],
+          ] as const
+        )[i % 4] ?? [0, 0];
+        const { x, z } = tileToWorld(start.col + dc, start.row + dr);
+        pool.position.set(x, look.lights.poolHeight, z);
+      });
+    },
   });
 
   const frame = (alpha: number) => {
@@ -151,41 +221,51 @@ async function boot(): Promise<void> {
     chamber.update();
     pickups.update(sim);
     hud.update(timeMs);
+    iris.update(timeMs);
     rig.update({ hero: hero.object.position, poolsAtPeak: look.bench.poolsAtPeak });
     view.render();
   };
 
-  // Compile every program with the full, fixed rig before the first frame.
-  frame(0);
-  await renderer.compileAsync(scene, camera);
+  let compiled: Promise<void> = Promise.resolve();
+  const director = createDirector({
+    machine,
+    sim,
+    view: {
+      build: (b) => levels.build(b),
+      // Every program, with the full, fixed rig and every view in the scene, once.
+      precompile() {
+        frame(0);
+        compiled = renderer.compileAsync(scene, camera).then(() => undefined);
+        return compiled;
+      },
+    },
+    transition: iris,
+    cameraRig,
+    run,
+    drawSeed,
+    reducedMotion: () => reducedMotion.matches,
+    onRun: logRun,
+    onError: shell.showError,
+  });
 
-  const loop = createFixedLoop({ update: () => sim.update(), render: frame });
+  machine.onChange((to) => {
+    if (to === 'ended') screens.ended(session.coins);
+    else if (to === 'building') screens.hide();
+    else if (to === 'playing' && document.body.dataset['ready'] === undefined) {
+      document.body.dataset['ready'] = 'true'; // e2e waits on this
+    }
+  });
+
+  const loop = createFixedLoop({ update: () => director.update(), render: frame });
+  // The restart listener goes first, so the key that restarts never reaches grid input.
+  bindRestart(window, { ended: () => machine.state === 'ended', restart: director.restart });
   bindKeyboard(window, sim.input);
-  machine.go('entering'); // the hazard clock starts
-  machine.go('playing'); // input unlocks
 
   const guard = createRigGuard(
     { lights: () => countLiveLights(scene), programs: () => renderer.info.programs?.length ?? 0 },
     (v) => console.error('[rig-guard] light rig changed after boot', v),
   );
   const stats = import.meta.env.DEV ? createFrameStats() : null;
-
-  const timer = new Timer();
-  let armed = false;
-  renderer.setAnimationLoop((now) => {
-    timer.update(now);
-    const dt = timer.getDelta();
-    loop.advance(dt);
-    if (import.meta.env.DEV) {
-      stats?.record(dt * 1000);
-      // Post-pass and shadow programs compile on the first composed frame; arm after it.
-      if (armed) guard.check();
-      else {
-        guard.arm();
-        armed = true;
-      }
-    }
-  });
 
   if (import.meta.env.DEV && stats) {
     const { mountDevTools } = await import('@render/dev-panel');
@@ -202,21 +282,54 @@ async function boot(): Promise<void> {
         rig,
         guard,
         stats,
-        run,
-        level,
+        machine,
+        get run() {
+          return director.run;
+        },
+        get level() {
+          return director.level;
+        },
         chamber,
         pickups: pickups.group,
         hero: hero.object,
         cameraRig,
-        sim: createDevSim(sim, loop),
+        sim: createDevSim(sim, loop, director),
       },
     });
   }
 
-  document.body.dataset['ready'] = 'true'; // e2e waits on this
+  director.start();
+  // No frames while the first compile runs: a frame would compile the same programs
+  // synchronously. The director reports a rejection itself.
+  await compiled.catch(() => undefined);
+  if (machine.state === 'failed') return;
+
+  const timer = new Timer();
+  let armed = false;
+  renderer.setAnimationLoop((now) => {
+    timer.update(now);
+    const dt = timer.getDelta();
+    loop.advance(dt);
+    if (import.meta.env.DEV) {
+      stats?.record(dt * 1000);
+      // Arm on the first composed frame after the precompile (post-pass and shadow
+      // programs compile on it), then check every frame.
+      if (armed) guard.check();
+      else if (machine.state !== 'loading' && machine.state !== 'building') {
+        guard.arm();
+        armed = true;
+      }
+    }
+  });
 }
 
-boot().catch((err: unknown) => {
+try {
+  const s = createShell();
+  boot(s).catch((err: unknown) => {
+    if (s.machine.state !== 'failed') s.machine.go('failed');
+    s.showError(err);
+  });
+} catch (err) {
   console.error(err);
   document.body.dataset['ready'] = 'error';
-});
+}
