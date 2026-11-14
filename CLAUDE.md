@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Doom Maze 3D**: a third-person 3D translation of _Pip's Temple Adventure_ from `../pip-maze-v-2` (Phaser 4, 2D). The rules carry over: procedurally generated maze chambers, keys → chest, flames, spikes, axe blades, mummies, coins, a tutorial and a boss arena. The presentation becomes 3D: a three.js runtime with models made in Blender.
 
-**Status: scaffold only.** `src/main.ts` boots a placeholder scene (level 0 built as a chamber from a generated map on the placeholder kit, with a capsule hero on the start tile) with the real light rig and post chain. No game logic has been ported. `docs/v2-port-map.md` lists every v2 module and where it goes; read it, and v2's own `CLAUDE.md`, before porting anything.
+**Status: milestone-1 greybox spine.** Levels 0 and 1 play end to end on the placeholder kit with greybox views (spec `.scratch/m1-slice/spec.md`, tickets 01–08): the seeded generator (v2 parity), grid-snap hero movement, coins, keys and the chest, the HUD, the iris transition and end card, and flames and blades that kill, with death, respawn and grace. Real art (Pip, sandstone kit, hazard and pickup models), mummies, the tutorial and the boss arena are not in yet. `docs/v2-port-map.md` lists every v2 module and where it goes; read it, and v2's own `CLAUDE.md`, before porting anything.
 
 ## Stack
 
@@ -80,7 +80,7 @@ Stylised PBR, not pixel art: see `docs/adr/0001-stylised-pbr-art-direction.md`, 
 - The colour reservations are binding: fire ramp only for hazards and telegraphs (the one exception is a flame carried by the hero: `FIRE_HOT`/`FIRE_CORE` only), gold only for pickups, curse teal only for mummies, steel only for blades and spikes. The floor is the darkest, lowest-contrast surface.
 - Kit materials are bpy-procedural Principled BSDF setups with palette inputs, baked to texture sets with AO, at 128 px/m. CC0 maps are for greyscale detail only, never colour.
 - Lights are fixed at 1 shadowed north-west key + 1 hemisphere fill + 1 torch + 4 flame-pool slots, plus a palette gradient environment map. Pickups glow through emissive + bloom, never with their own light. Never add, remove or toggle a light during play (that recompiles shaders). Every light is a direct child of the scene. In dev, `rig-guard` checks every frame that the live light count and `renderer.info.programs.length` stay at their post-boot baseline.
-- Tone mapping is `NeutralToneMapping`, DPR capped at 2, and the composer renders into a 4-sample `HalfFloatType` target (the canvas has no AA). Post: bloom (only emissive at intensity ≥ 2) → vignette → `OutputPass`. No SSAO, outline or pixelation passes.
+- Tone mapping is `NeutralToneMapping`, DPR capped at 1 (`look.renderer.maxPixelRatio`; at 2 the post chain is fill-bound), and the composer renders into a 4-sample `HalfFloatType` target (the canvas has no AA). Post: bloom (only emissive at intensity ≥ 2) → vignette → `OutputPass`. No SSAO, outline or pixelation passes.
 - Feel values (light intensities, bloom, vignette, material numbers) live in `src/render/look/` (`import { look } from '@render/look'`), with a dev-only lil-gui panel and frame-time readout. Each domain is one file, `look/<domain>.ts`, that calls `section(name, values, ranges)` from `look/registry.ts` (which registers it with the panel); add the domain with one line in `look/index.ts`. Render code reads look values every frame, so panel edits are live. Don't hard-code feel values elsewhere.
 
 ## Dev tooling
