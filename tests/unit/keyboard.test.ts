@@ -106,4 +106,36 @@ describe('bindRestart', () => {
     h.target.dispatchEvent(key('keydown', 'ArrowUp'));
     expect(h.log).toEqual(['press north']);
   });
+
+  it('ignores modifier-only presses and leaves them unconsumed', () => {
+    const h = restartHarness({ ended: true });
+    for (const code of ['ShiftLeft', 'ControlRight', 'AltLeft', 'MetaLeft', 'CapsLock']) {
+      const e = key('keydown', code);
+      h.target.dispatchEvent(e);
+      expect(e.defaultPrevented).toBe(false);
+    }
+    expect(h.log).toEqual([]);
+  });
+
+  it('leaves browser shortcuts alone (Meta/Ctrl/Alt chords, F-keys)', () => {
+    const h = restartHarness({ ended: true });
+    const chords = [
+      Object.assign(key('keydown', 'KeyR'), { metaKey: true }),
+      Object.assign(key('keydown', 'KeyR'), { ctrlKey: true }),
+      Object.assign(key('keydown', 'Tab'), { altKey: true }),
+      key('keydown', 'F5'),
+      key('keydown', 'F12'),
+    ];
+    for (const e of chords) {
+      h.target.dispatchEvent(e);
+      expect(e.defaultPrevented).toBe(false);
+    }
+    expect(h.log).toEqual([]);
+  });
+
+  it('still restarts on a Shift-held letter', () => {
+    const h = restartHarness({ ended: true });
+    h.target.dispatchEvent(Object.assign(key('keydown', 'KeyR'), { shiftKey: true }));
+    expect(h.log).toEqual(['restart']);
+  });
 });
