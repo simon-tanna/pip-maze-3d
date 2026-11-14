@@ -6,7 +6,7 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 
 - The palette becomes one JSON file read by both TS and bpy. It includes v2's Torchlit Sandstone `P` / `LIGHT` and the new reserved `HERO_*` block, with starting values sampled from `docs/art/pip-concept.png` and `HERO_HAT` a distinct hue from `MOSS`. TS gets `P`, `LIGHT`, `color()` and `css()`; bpy gets linear RGB.
 - Feel values live in one look module, split into per-domain sections (camera, hud, flame, blade, pickups, fx, hero) that each register with the panel, so later tickets add a section rather than edit a shared block. A dev-only lil-gui panel and a frame-time readout that can log a summary (mean, p95, worst, frames over 33 ms).
-- `NeutralToneMapping`, DPR capped at 2. EffectComposer on a 4-sample `HalfFloatType` render target sized by DPR; the canvas drops `antialias: true`. Then bloom (threshold 1.0, strength 0.45) → vignette → `OutputPass`.
+- `NeutralToneMapping`, DPR capped at 1 (was 2; changed 2026-11-14 after DPR 2 measured ~51 ms/frame on an M3). EffectComposer on a 4-sample `HalfFloatType` render target sized by DPR; the canvas drops `antialias: true`. Then bloom (threshold 1.0, strength 0.45) → vignette → `OutputPass`.
 - The fixed light rig: a shadowed north-west key light (55–60°), a hemisphere fill, the torch, and **4 flame-pool slots that always exist** (intensity 0 when idle), plus a palette-gradient PMREM env map. Every light is a direct child of the scene. Precompile with `renderer.compileAsync`.
 - **Light bench:** a dev-panel toggle drives all 4 pool slots at peak over a chamber-sized greybox, so the light budget from ticket 03 of the map can be measured.
 - **Fonts:** self-host Black Ops One and Pixelify Sans (OFL) under `public/fonts/`, with their licences.
@@ -18,7 +18,7 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 
 - [x] No hex or RGB colour literal remains outside the palette JSON, in TS or Python (the scaffold's literals are gone)
 - [x] Feel values appear only in the look module, and the dev panel and readout are absent from `pnpm build` output
-- [x] A unit or e2e check asserts the renderer config: `NeutralToneMapping`, pixel ratio ≤ 2, a 4-sample composer target, bloom threshold and strength from `look`
+- [x] A unit or e2e check asserts the renderer config: `NeutralToneMapping`, pixel ratio ≤ 1 (was ≤ 2), a 4-sample composer target, bloom threshold and strength from `look`
 - [x] No light is ever added, removed or toggled after boot: a guard asserts the per-frame collected light count and `renderer.info.programs.length` stay constant (ticket 07 extends it across a death-and-grace cycle)
 - [x] CLAUDE.md's note that the scaffold still uses ACES is removed
 - [ ] Light bench on the human's MacBook (1080p, DPR 1, bloom on, 4 pool lights at peak): the logged summary is recorded on this ticket. Pass: p95 ≤ 16.7 ms. On a miss, the fallback (2 pool slots, or peak scale lowered until it passes) is decided and recorded here before ticket 12 starts
@@ -39,3 +39,5 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
   - Headless, 4 pools at peak: `{"frames":600,"meanMs":16.67,"p95Ms":16.7,"worstMs":16.8,"over33":0}`. Idle pools gave identical numbers.
   - Headed, 4 pools at peak: `{"frames":600,"meanMs":16.67,"p95Ms":17.5,"worstMs":17.8,"over33":0}`. Idle pools gave the same p95 of 17.5, so the miss comes from rAF timing jitter at the 60 Hz vsync cap, not from light cost.
   - Both runs are vsync-locked, so they show headroom but not GPU time. For the human: a rAF-delta p95 can sit just above 16.7 ms from jitter alone. Compare bench on against bench off rather than treating 16.7 as a hard line. The human's MacBook run and the pass/fallback decision are still open.
+
+- 2026-11-14: **DPR cap lowered from 2 to 1** (human decision, branch `fix/frame-time`). In real Chrome on the M3, a Retina (DPR 2) screen ran at a 51 ms mean and p95 84 ms: the 4× MSAA HalfFloat target and bloom are fill-bound at 4× the pixels. With the cap at 1 it runs at a 16.6 ms mean and p95 17.3 ms. The agent measurement above was at DPR 1, so it never showed this.
