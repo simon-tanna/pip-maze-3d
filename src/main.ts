@@ -15,6 +15,7 @@ import type { GameState } from '@game/state';
 import { createCameraRig } from '@render/camera-rig';
 import { createChamberView } from '@render/chamber';
 import { CHAMBER_KIT } from '@render/chamber-kit';
+import { createFlamesView } from '@render/flames';
 import { createFrameStats } from '@render/frame-stats';
 import { createHeroView } from '@render/hero';
 import { createLevelViews } from '@render/level-views';
@@ -159,6 +160,8 @@ async function boot(shell: Shell): Promise<void> {
   scene.add(chamber.group);
   const pickups = createPickupsView();
   scene.add(pickups.group);
+  const flames = createFlamesView({ truth: import.meta.env.DEV });
+  scene.add(flames.group);
   const hero = createHeroView();
   scene.add(hero.object);
   const cameraRig = createCameraRig(camera);
@@ -177,6 +180,8 @@ async function boot(shell: Shell): Promise<void> {
   sim.on('keyLost', () => hud.keyLost());
   sim.on('chestLocked', () => hud.toast('Find the key first!'));
   sim.on('chestOpened', () => pickups.openChest());
+  // The camera holds on the death spot (`heroPosition`), then cuts to the respawn.
+  sim.on('respawned', () => cameraRig.resetLag());
 
   // Per-level views, torn down and rebuilt behind INK on every `building`.
   const levels = createLevelViews();
@@ -188,6 +193,7 @@ async function boot(shell: Shell): Promise<void> {
     },
   });
   levels.add({ build: ({ level }) => pickups.build(level), teardown: pickups.teardown });
+  levels.add({ build: () => flames.build(sim.flames()), teardown: () => flames.teardown() });
   levels.add({
     build: ({ index }) => hud.level({ index, requiredKeys: sim.snapshot().requiredKeys }),
   });
@@ -220,6 +226,7 @@ async function boot(shell: Shell): Promise<void> {
     scene.environmentIntensity = look.lights.envIntensity;
     chamber.update();
     pickups.update(sim);
+    flames.update(sim.flames());
     hud.update(timeMs);
     iris.update(timeMs);
     rig.update({ hero: hero.object.position, poolsAtPeak: look.bench.poolsAtPeak });
@@ -271,6 +278,10 @@ async function boot(shell: Shell): Promise<void> {
     const { mountDevTools } = await import('@render/dev-panel');
     const { createDevSim } = await import('@game/dev-sim');
     mountDevTools(stats);
+    // G: the ground-truth overlay of lethal tiles (the hazards prototype's).
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'KeyG' && !e.repeat) flames.showTruth = !flames.showTruth;
+    });
     Object.assign(window, {
       __game: {
         scene,
@@ -291,6 +302,7 @@ async function boot(shell: Shell): Promise<void> {
         },
         chamber,
         pickups: pickups.group,
+        flames,
         hero: hero.object,
         cameraRig,
         sim: createDevSim(sim, loop, director),
