@@ -18,7 +18,7 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
 - [x] The frozen slot names and bone layout are recorded on this ticket
 - [ ] Human sign-off (a dated line under `## Comments`) on silhouette, face read at game scale, and walk feel, against the concept PNG. Not needed for agent-complete
 - [x] The ticket 10 GLB check still passes
-- [ ] `pnpm check` and `pnpm test:e2e` pass
+- [x] `pnpm check` and `pnpm test:e2e` pass
 
 ## Comments
 
@@ -43,3 +43,4 @@ Concept for every comparison: [`docs/art/pip-concept.png`](../../../docs/art/pip
     - `torchLeadSouth` went from 0.5 to 0.9 (`look/lights.ts`). This is a chamber-wide light value, so the human light bench should confirm it.
     - `HERO_COAT` went from `#3f415c` to `#3d4262`, a little bluer. The sampled value was 0.066 from `STEEL_DARK`.
     - The `CREAM` rim (`look.hero.rimStrength` 0.35) reads as a pale outline on the navy coat in game. It's untouched, but a candidate for the human to lower.
+- 2026-11-15: **Results on `ticket/11-pip-fidelity`, merged with `main` (ticket 09 included).** `pnpm check` passes (281 unit tests). `pnpm assets:test` passes (9 export-contract cases and the render checks). `DEV_PORT=5182 pnpm test:e2e` passes 37/37. One pre-merge e2e run timed out in `pickups-hud`'s reduced-motion walk. A/B runs under a load average near 30 put the v1 GLB at 39 s to 1.2 min and this GLB at 32 s to 1.3 min, so the timeout came from load, not Pip (5.7k triangles, was 1.4k). Ticket 09's fix to that spec landed with the merge.
