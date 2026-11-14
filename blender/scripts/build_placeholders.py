@@ -27,7 +27,7 @@ TILE_SIZE = 2.0  # metres — must match TILE_SIZE in src/core/grid.ts
 WALL_HEIGHT = 2.2  # metres — must match WALL_HEIGHT in src/render/chamber-kit.ts
 CAP_THICKNESS = 0.2
 FACE_DEPTH = 0.15  # relief stays inside the wall tile
-SLOT_WIDTH = 0.4  # face_slot: the gap a blade's haft spins through
+SLOT_WIDTH = 0.4  # face_slot / cap_slot: the gap a blade spins through
 CONTACT_LIFT = 0.01  # above the floor, so the strip never z-fights it
 
 HALF = TILE_SIZE / 2
@@ -96,8 +96,20 @@ def build_chamber_kit() -> None:
     floor_mat = material("floor", "FLOOR")
     contact_mat = material("contact", "INK")  # render swaps in its multiply strip material
 
+    cap_bottom = WALL_HEIGHT - CAP_THICKNESS
     for v in range(3):
-        box(f"cap_{v}", (-HALF, -HALF, WALL_HEIGHT - CAP_THICKNESS), (HALF, HALF, WALL_HEIGHT), cap_mat)
+        box(f"cap_{v}", (-HALF, -HALF, cap_bottom), (HALF, HALF, WALL_HEIGHT), cap_mat)
+    # The cap of a wall tile beside a blade: the swing (head reach ~2.6 m from the pivot,
+    # src/core/blade-shape.json) crosses the cap slab ~1.6 m into the tile, so the slot runs
+    # the full tile depth along the swing plane (x = 0).
+    slot_gap = SLOT_WIDTH / 2
+    join(
+        "cap_slot",
+        [
+            box("cap_slot", (-HALF, -HALF, cap_bottom), (-slot_gap, HALF, WALL_HEIGHT), cap_mat),
+            box("_cap_slot_e", (slot_gap, -HALF, cap_bottom), (HALF, HALF, WALL_HEIGHT), cap_mat),
+        ],
+    )
 
     # Faces look south: three's +z is Blender's -y, so they hug y = -HALF.
     face_top = WALL_HEIGHT - CAP_THICKNESS

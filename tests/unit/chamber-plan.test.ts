@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { generateLevel, MAP_COLS, MAP_ROWS, tileRng } from '@core/generator';
 import {
+  CAP_SLOT_VARIANT,
+  CAP_VARIANTS,
   CONTACT_DEPTH,
   FACE_SLOT_VARIANT,
   FACE_VARIANTS,
@@ -146,10 +148,35 @@ describe('planChamber', () => {
     const other = (p: typeof plan) =>
       p.filter((f) => !(f.piece === 'face' && f.variant === FACE_SLOT_VARIANT));
     const slotted = new Set(expected);
-    expect(other(plan)).toEqual(
-      bare.filter((f) => !(f.piece === 'face' && slotted.has(`${f.col},${f.row},${f.side}`))),
+    const slotTiles = new Set(expected.map((k) => k.slice(0, k.lastIndexOf(','))));
+    const sameCap = (f: (typeof plan)[number]) =>
+      f.piece === 'cap' && !f.padding && slotTiles.has(`${f.col},${f.row}`);
+    expect(other(plan).filter((f) => !sameCap(f))).toEqual(
+      bare.filter(
+        (f) => !(f.piece === 'face' && slotted.has(`${f.col},${f.row},${f.side}`)) && !sameCap(f),
+      ),
     );
     expect(FACE_SLOT_VARIANT).toBe(FACE_VARIANTS);
+  });
+
+  it('slots the cap of each wall tile beside a blade, so the swing clears the wall top', () => {
+    const blades = level.traps.filter((t) => t.type === 'blade');
+    const beside = new Set(
+      blades
+        .flatMap((b) => [
+          { col: b.col, row: b.row - 1 },
+          { col: b.col, row: b.row + 1 },
+        ])
+        .filter((t) => level.map[t.row]?.[t.col] === 1)
+        .map((t) => `${t.col},${t.row}`),
+    );
+    expect(beside.size).toBeGreaterThan(0);
+    for (const cap of at('cap').filter((p) => inMap(p.col, p.row))) {
+      const key = `${cap.col},${cap.row}`;
+      expect(cap.variant === CAP_SLOT_VARIANT, key).toBe(beside.has(key));
+      expect(cap.rotation).toBe(0); // the slot runs north–south, in the swing plane
+    }
+    expect(CAP_SLOT_VARIANT).toBe(CAP_VARIANTS);
   });
 
   it('generated maps are the generator’s MAP_COLS × MAP_ROWS', () => {

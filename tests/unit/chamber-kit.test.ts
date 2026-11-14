@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import type { Box3, BufferGeometry, Mesh, Object3D } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { BLADE_SHAPE, HEAD_RING } from '@core/blade';
 import { TILE_SIZE } from '@core/grid';
 import { CHAMBER_KIT, KIT_NODES, WALL_HEIGHT } from '@render/chamber-kit';
 
@@ -35,6 +36,7 @@ describe('placeholder chamber kit', () => {
       'cap_0',
       'cap_1',
       'cap_2',
+      'cap_slot',
       'face_0',
       'face_1',
       'face_2',
@@ -55,7 +57,7 @@ describe('placeholder chamber kit', () => {
 
   it('caps a tile at the 2.2 m wall height', () => {
     expect(WALL_HEIGHT).toBe(2.2);
-    for (const name of ['cap_0', 'cap_1', 'cap_2']) {
+    for (const name of ['cap_0', 'cap_1', 'cap_2', 'cap_slot']) {
       const b = boundsOf(name);
       expect(b.max.y, name).toBeCloseTo(WALL_HEIGHT, 4);
       expect(b.min.x).toBeCloseTo(-half, 4);
@@ -74,6 +76,28 @@ describe('placeholder chamber kit', () => {
       expect(b.min.z).toBeGreaterThan(0);
       expect(b.min.x).toBeGreaterThanOrEqual(-half - eps);
       expect(b.max.x).toBeLessThanOrEqual(half + eps);
+    }
+  });
+
+  it('cuts cap_slot and face_slot clear of the blade’s swing plane, wherever it reaches', () => {
+    // The head's farthest point from the pivot, in the swing plane (u, y).
+    const reach = Math.max(...HEAD_RING.map(([u, y]) => Math.hypot(u, y - BLADE_SHAPE.arm)));
+    // From the blade tile's centre the swing reaches into the slotted wall tile, never past it.
+    expect(reach).toBeGreaterThan(half);
+    expect(reach).toBeLessThan(3 * half);
+    // Every triangle stays outside the slot band around local x = 0 (the swing plane),
+    // over the whole tile depth, through the face and the cap alike.
+    const clear = BLADE_SHAPE.halfThickness + 0.05;
+    for (const name of ['cap_slot', 'face_slot']) {
+      const g = geometryOf(name);
+      const pos = g.getAttribute('position');
+      const index = g.getIndex();
+      const n = index ? index.count : pos.count;
+      for (let t = 0; t < n; t += 3) {
+        const xs = [0, 1, 2].map((k) => pos.getX(index ? index.getX(t + k) : t + k));
+        const straddles = Math.min(...xs) < clear - eps && Math.max(...xs) > -clear + eps;
+        expect(straddles, `${name} triangle ${t / 3} crosses the slot`).toBe(false);
+      }
     }
   });
 

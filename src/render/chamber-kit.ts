@@ -4,6 +4,8 @@
  * sandstone kit by changing `CHAMBER_KIT` only.
  *
  * - `cap_*`: the tile's top slab, x/z over the whole tile, top at `WALL_HEIGHT`.
+ *   `cap_slot` has a north–south slot through x = 0, the full tile deep, for a blade's
+ *   swing (it reaches ~1.6 m into the wall tile beside it, at the cap's height).
  * - `face_*`, `face_slot`: the wall side that looks south (+z), inside the tile, from the
  *   floor up to the cap. Chamber placements rotate local +z towards the open neighbour.
  * - `floor_*`: a flagstone, flat at y = 0 over the whole tile.
@@ -20,6 +22,7 @@ export const KIT_NODES = [
   'cap_0',
   'cap_1',
   'cap_2',
+  'cap_slot',
   'face_0',
   'face_1',
   'face_2',
@@ -36,7 +39,7 @@ export type KitNode = (typeof KIT_NODES)[number];
 
 /** Kit node for each (piece, variant) a chamber plan can name, in variant order. */
 export const CHAMBER_KIT_VARIANTS = {
-  cap: ['cap_0', 'cap_1', 'cap_2'],
+  cap: ['cap_0', 'cap_1', 'cap_2', 'cap_slot'], // CAP_SLOT_VARIANT last
   face: ['face_0', 'face_1', 'face_2', 'face_slot'], // FACE_SLOT_VARIANT last
   floor: ['floor_0', 'floor_1', 'floor_2', 'floor_3', 'floor_4'],
   contact: ['contact'],

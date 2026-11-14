@@ -62,6 +62,12 @@ export const FACE_VARIANTS = 3;
  * haft. Placed in the face's own rng draw, so every other face keeps its variant.
  */
 export const FACE_SLOT_VARIANT = FACE_VARIANTS;
+/**
+ * The `cap_slot` variant: the cap of a wall tile beside a blade, slotted north–south along
+ * the swing plane so the spinning head clears the wall top. Placed in the cap's own rng
+ * draw, like `FACE_SLOT_VARIANT`.
+ */
+export const CAP_SLOT_VARIANT = CAP_VARIANTS;
 export const FLOOR_VARIANTS = 5;
 
 /** v2's `drawChamber` flagstone pick: variants 0–4 weighted 40/20/15/15/10. */
@@ -115,13 +121,15 @@ export function planChamber(level: Level, seed: number): Placement[] {
       .filter((t) => t.type === 'blade')
       .flatMap((b) => [`${b.col},${b.row - 1},s`, `${b.col},${b.row + 1},n`]),
   );
+  const slotCaps = new Set([...slots].map((k) => k.slice(0, k.lastIndexOf(','))));
   map.forEach((cells, row) =>
     cells.forEach((v, col) => {
       const rng = tileRng(seed, col, row);
       if (v === 1) {
+        const drawnCap = Math.floor(rng() * CAP_VARIANTS);
         out.push({
           piece: 'cap',
-          variant: Math.floor(rng() * CAP_VARIANTS),
+          variant: slotCaps.has(`${col},${row}`) ? CAP_SLOT_VARIANT : drawnCap,
           col,
           row,
           rotation: 0,
