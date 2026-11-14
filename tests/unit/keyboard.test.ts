@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Dir } from '@core/grid-input';
-import { bindKeyboard } from '@game/keyboard';
+import { bindKeyboard, bindRestart } from '@game/keyboard';
 
 /** A keyboard-shaped event; Node has `Event` but no `KeyboardEvent`. */
 const key = (type: 'keydown' | 'keyup', code: string, repeat = false) =>
@@ -58,5 +58,52 @@ describe('bindKeyboard', () => {
     h.target.dispatchEvent(key('keydown', 'ArrowUp'));
     h.target.dispatchEvent(new Event('blur'));
     expect(h.log).toEqual([]);
+  });
+});
+
+describe('bindRestart', () => {
+  function restartHarness(state: { ended: boolean }) {
+    const target = new EventTarget();
+    const log: string[] = [];
+    bindRestart(target, {
+      ended: () => state.ended,
+      restart: () => {
+        log.push('restart');
+        return true;
+      },
+    });
+    bindKeyboard(target, {
+      press: (d: Dir) => log.push(`press ${d}`),
+      release: () => {},
+      clear: () => {},
+    });
+    return { target, log };
+  }
+
+  it('restarts on a fresh key press while ended and consumes the key', () => {
+    const h = restartHarness({ ended: true });
+    const e = key('keydown', 'ArrowUp');
+    h.target.dispatchEvent(e);
+    expect(h.log).toEqual(['restart']);
+    expect(e.defaultPrevented).toBe(true);
+  });
+
+  it('is persistent: every fresh press while ended restarts', () => {
+    const h = restartHarness({ ended: true });
+    h.target.dispatchEvent(key('keydown', 'Space'));
+    h.target.dispatchEvent(key('keydown', 'KeyQ'));
+    expect(h.log).toEqual(['restart', 'restart']);
+  });
+
+  it('ignores repeats (a held arrow from the last step)', () => {
+    const h = restartHarness({ ended: true });
+    h.target.dispatchEvent(key('keydown', 'ArrowUp', true));
+    expect(h.log).toEqual([]);
+  });
+
+  it('does nothing outside ended: the key reaches grid input', () => {
+    const h = restartHarness({ ended: false });
+    h.target.dispatchEvent(key('keydown', 'ArrowUp'));
+    expect(h.log).toEqual(['press north']);
   });
 });

@@ -24,6 +24,20 @@ describe('layering', () => {
     );
   });
 
+  it.each([
+    ["import { Vector3 } from 'three';"],
+    ["import { look } from '@render/look';"],
+    ["import { createHud } from '@ui/hud';"],
+  ])('src/game may not %s', async (line) => {
+    expect(await restricted('src/game/probe.ts', line)).toBe(true);
+  });
+
+  it('src/game may import core', async () => {
+    expect(await restricted('src/game/probe.ts', "import { tileToWorld } from '@core/grid';")).toBe(
+      false,
+    );
+  });
+
   it('src/render may not import ui', async () => {
     expect(await restricted('src/render/probe.ts', "import { createHud } from '@ui/hud';")).toBe(
       true,

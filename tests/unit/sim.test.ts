@@ -112,4 +112,100 @@ describe('hero simulation', () => {
     ticks(sim, 6);
     expect(sim.snapshot().levelMs).toBeCloseTo(100, 9);
   });
+
+  it('level time stops when leaving begins', () => {
+    const { sim, machine } = playing();
+    ticks(sim, 6);
+    machine.go('leaving');
+    ticks(sim, 30);
+    expect(sim.snapshot().levelMs).toBeCloseTo(100, 9);
+  });
+});
+
+// Start (1,1), key (2,1), chest (3,1), a coin at (1,2).
+const LEVEL_A = {
+  map: [
+    [1, 1, 1, 1, 1],
+    [1, 2, 0, 3, 1],
+    [1, 0, 1, 1, 1],
+    [1, 1, 1, 1, 1],
+  ],
+  key: { col: 2, row: 1 },
+  key2: null,
+  coins: [{ col: 1, row: 2 }],
+};
+// Start (3,1), chest (1,1), key (2,1).
+const LEVEL_B = {
+  map: [
+    [1, 1, 1, 1, 1],
+    [1, 3, 0, 2, 1],
+    [1, 1, 1, 1, 1],
+  ],
+  key: { col: 2, row: 1 },
+  key2: null,
+  coins: [],
+};
+
+describe('loading the next level', () => {
+  const walkTo = (sim: ReturnType<typeof createSim>, dir: 'east' | 'west' | 'south', n: number) => {
+    sim.input.press(dir);
+    for (let i = 0; i < n; i++) ticks(sim, 8);
+    sim.input.release(dir);
+    ticks(sim, 8);
+  };
+
+  it('load() puts the hero on the new start tile, facing south, with no keys', () => {
+    const machine = createGameState();
+    const sim = createSim({ map: LEVEL_A.map, machine, pickups: LEVEL_A });
+    machine.go('building');
+    machine.go('entering');
+    machine.go('playing');
+    walkTo(sim, 'east', 2);
+    expect(sim.snapshot()).toMatchObject({ keys: 1, tile: { col: 3, row: 1 } });
+    machine.go('leaving');
+    machine.go('building');
+    sim.load(LEVEL_B);
+    expect(sim.snapshot()).toMatchObject({
+      tile: { col: 3, row: 1 },
+      facing: 'south',
+      moving: false,
+      keys: 0,
+      levelMs: 0,
+    });
+    expect(sim.keyVisible(0)).toBe(true);
+  });
+
+  it('keeps the session coins and the clock, and the new level plays', () => {
+    const machine = createGameState();
+    const sim = createSim({ map: LEVEL_A.map, machine, pickups: LEVEL_A });
+    machine.go('building');
+    machine.go('entering');
+    machine.go('playing');
+    walkTo(sim, 'south', 1);
+    expect(sim.snapshot().coins).toBe(1);
+    const before = sim.snapshot().simMs;
+    machine.go('leaving');
+    machine.go('building');
+    sim.load(LEVEL_B);
+    expect(sim.snapshot().coins).toBe(1);
+    expect(sim.snapshot().simMs).toBe(before);
+    machine.go('entering');
+    machine.go('playing');
+    const opened: unknown[] = [];
+    sim.on('chestOpened', (e) => opened.push(e.tile));
+    walkTo(sim, 'west', 2);
+    expect(opened).toEqual([{ col: 1, row: 1 }]);
+  });
+
+  it('load() clears held input', () => {
+    const machine = createGameState();
+    const sim = createSim({ map: LEVEL_A.map, machine, pickups: LEVEL_A });
+    sim.input.press('east');
+    sim.load(LEVEL_B);
+    machine.go('building');
+    machine.go('entering');
+    machine.go('playing');
+    ticks(sim, 10);
+    expect(sim.snapshot().tile).toEqual({ col: 3, row: 1 });
+  });
 });

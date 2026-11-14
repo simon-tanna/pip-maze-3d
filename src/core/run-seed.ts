@@ -63,6 +63,16 @@ export function resolveRun(params: Params, drawSeed: () => number): RunStart {
   return { base, level: start, seed: levelSeed(base, start), pinned: false, warnings };
 }
 
+/**
+ * The run after the end card's restart: a pinned run replays as it is (same level, same
+ * seed); an unpinned one starts over at level 0 with a freshly drawn base seed.
+ */
+export function restartRun(run: RunStart, drawSeed: () => number): RunStart {
+  if (run.pinned) return run;
+  const base = drawSeed() >>> 0;
+  return { base, level: 0, seed: levelSeed(base, 0), pinned: false, warnings: [] };
+}
+
 /** Seed of level `i` in this run: the pinned level keeps S, every other uses `levelSeed`. */
 export function seedForLevel(run: RunStart, i: number): number {
   return run.pinned && i === run.level ? run.seed : levelSeed(run.base, i);

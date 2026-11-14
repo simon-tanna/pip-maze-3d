@@ -11,6 +11,26 @@ interface KeyLike {
   repeat?: boolean;
 }
 
+/**
+ * The end card's restart (spec: State machine → ended): a persistent `keydown` listener
+ * that acts only while the game is ended, ignores auto-repeats (a held arrow from the
+ * last step never restarts), and consumes its key so it never reaches grid input.
+ * Bind it **before** `bindKeyboard` on the same target. Returns the unbind function.
+ */
+export function bindRestart(
+  target: EventTarget,
+  game: { ended(): boolean; restart(): boolean },
+): () => void {
+  const onKeyDown = (event: Event) => {
+    if (!game.ended() || (event as KeyLike).repeat) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    game.restart();
+  };
+  target.addEventListener('keydown', onKeyDown);
+  return () => target.removeEventListener('keydown', onKeyDown);
+}
+
 /** Listen on `target` (the window in the game). Returns the unbind function. */
 export function bindKeyboard(
   target: EventTarget,

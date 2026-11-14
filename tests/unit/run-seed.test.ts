@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { levelSeed } from '@core/generator';
-import { resolveRun, seedForLevel } from '@core/run-seed';
+import { restartRun, resolveRun, seedForLevel } from '@core/run-seed';
 
 const draw = () => 777;
 const run = (query: string) => resolveRun(new URLSearchParams(query), draw);
@@ -53,5 +53,22 @@ describe('resolveRun', () => {
     const r = run(query);
     expect(r).toMatchObject({ base: 777, level: 0, seed: 777, pinned: false });
     expect(r.warnings).toHaveLength(1);
+  });
+});
+
+describe('restartRun', () => {
+  it('keeps a pinned run as it is', () => {
+    const r = run('seed=4242&level=1');
+    expect(restartRun(r, () => 5)).toBe(r);
+  });
+
+  it('starts an unpinned run over at level 0 with a fresh base seed', () => {
+    expect(restartRun(run('level=1'), () => 5)).toEqual({
+      base: 5,
+      level: 0,
+      seed: 5,
+      pinned: false,
+      warnings: [],
+    });
   });
 });

@@ -3,7 +3,8 @@
  * Only ever loaded through an `import.meta.env.DEV`-guarded dynamic import, so it never
  * reaches the production bundle.
  *
- * - `snapshot()`: read-only state (hero tile, facing, machine state, level time, …).
+ * - `snapshot()`: read-only state (hero tile, facing, machine state, level index, level
+ *   time, …).
  * - `press(dir)` / `release(dir)` dispatch real `keydown` / `keyup` events on the window,
  *   so they take the same path as the keyboard (`@game/keyboard` → grid input).
  * - `pause()` stops the rAF-driven advance; `advance(ms)` runs `ceil(ms / tick)` ticks
@@ -23,7 +24,7 @@ const DIR_CODES: Readonly<Record<Dir, string>> = {
 };
 
 export interface DevSim {
-  snapshot(): SimSnapshot & { paused: boolean };
+  snapshot(): SimSnapshot & { paused: boolean; levelIndex: number };
   press(dir: Dir): void;
   release(dir: Dir): void;
   pause(): void;
@@ -32,12 +33,17 @@ export interface DevSim {
   hazardsOff(off: boolean): void;
 }
 
-export function createDevSim(sim: Sim, loop: FixedLoop, target: EventTarget = window): DevSim {
+export function createDevSim(
+  sim: Sim,
+  loop: FixedLoop,
+  game: { readonly levelIndex: number },
+  target: EventTarget = window,
+): DevSim {
   const send = (type: 'keydown' | 'keyup', dir: Dir) => {
     target.dispatchEvent(new KeyboardEvent(type, { code: DIR_CODES[dir], cancelable: true }));
   };
   return {
-    snapshot: () => ({ ...sim.snapshot(), paused: loop.paused }),
+    snapshot: () => ({ ...sim.snapshot(), paused: loop.paused, levelIndex: game.levelIndex }),
     press: (dir) => send('keydown', dir),
     release: (dir) => send('keyup', dir),
     pause() {

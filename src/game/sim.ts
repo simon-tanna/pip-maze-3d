@@ -98,6 +98,12 @@ export interface Sim {
   /** The hero's world position at `alpha`, from `stepPosition` mid-step. */
   heroPosition(alpha: number): WorldXZ;
   on<K extends keyof SimEvents>(type: K, listener: (event: SimEvents[K]) => void): void;
+  /**
+   * Swap in the next level (state machine `building`): the hero goes to its start tile,
+   * facing south; keys, pickups, the step and input reset. The clock, the session and
+   * every listener carry over.
+   */
+  load(level: { map: TileMap } & PickupLayout): void;
   /** Drop the most recent key (death, ticket 07). False when none is held. */
   dropKey(): boolean;
   /** Whether key `index` stands in the level (for the pickup view). */
@@ -130,10 +136,16 @@ export function createSim({
   session = createSession(),
 }: SimOptions): Sim {
   let ticks = 0;
+  let current = map;
   const now = () => (ticks * 1000) / TICKS_PER_SECOND;
   let levelStartMs: number | null = null;
+  /** Set when `leaving` begins: the hazard clock stops there. */
+  let levelEndMs: number | null = null;
   machine.onChange((to) => {
-    if (to === 'entering') levelStartMs = now();
+    if (to === 'entering') {
+      levelStartMs = now();
+      levelEndMs = null;
+    } else if (to === 'leaving') levelEndMs = now();
   });
 
   let tile = startTile(map);
@@ -142,7 +154,7 @@ export function createSim({
   /** While chaining on landing, the time the next step starts (the last step's end). */
   let chainStartMs: number | null = null;
 
-  const pickups = createPickups(map, layout);
+  let pickups = createPickups(map, layout);
   const listeners: { [K in keyof SimEvents]: ((e: SimEvents[K]) => void)[] } = {
     step: [],
     landed: [],
@@ -184,7 +196,7 @@ export function createSim({
   };
 
   const walkable = (col: number, row: number) => {
-    const v = map[row]?.[col];
+    const v = current[row]?.[col];
     return v !== undefined && v !== 1;
   };
 
@@ -226,7 +238,7 @@ export function createSim({
         moving: step !== null,
         machine: machine.state,
         simMs: now(),
-        levelMs: levelStartMs === null ? 0 : now() - levelStartMs,
+        levelMs: levelStartMs === null ? 0 : (levelEndMs ?? now()) - levelStartMs,
         ignoreHazards: this.ignoreHazards,
         keys: pickups.keys,
         requiredKeys: pickups.requiredKeys,
@@ -242,6 +254,17 @@ export function createSim({
     },
     on(type, listener) {
       listeners[type].push(listener);
+    },
+    load(level) {
+      current = level.map;
+      pickups = createPickups(level.map, level);
+      tile = startTile(level.map);
+      facing = 'south';
+      step = null;
+      chainStartMs = null;
+      levelStartMs = null;
+      levelEndMs = null;
+      input.clear();
     },
     dropKey() {
       const losses = pickups.loseKey();
