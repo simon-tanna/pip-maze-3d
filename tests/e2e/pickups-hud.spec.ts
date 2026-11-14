@@ -162,7 +162,11 @@ test.describe('under reduced motion', () => {
     }
     await expect(page.locator('[data-hud="plus"]')).toHaveCount(0);
 
-    await game.walk(LEVEL_0.legs[1]?.moves ?? []);
+    // A long leg: skip rendering up to its last move (textured SwiftShader frames are
+    // costly), then render every step of the move that lands on the key, so the HUD runs.
+    const toKey = LEVEL_0.legs[1]?.moves ?? [];
+    await game.walk(toKey.slice(0, -1), { frames: 'last' });
+    await game.walk(toKey.slice(-1));
     await expect(page.locator('[data-hud="flyer-key"]')).toHaveCount(1);
     await tickUntil(game, async () => (await slot(page).getAttribute('data-filled')) === 'true');
     await game.advance(1);
