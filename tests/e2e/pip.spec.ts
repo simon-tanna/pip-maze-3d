@@ -1,3 +1,4 @@
+import type { Object3D, SkinnedMesh } from 'three';
 import type { HeroAnim } from '../../src/render/hero';
 import { expect, LEVEL_0, test } from './fixtures/game';
 import type { DevGameWindow } from './fixtures/game';
@@ -6,7 +7,7 @@ import type { DevGameWindow } from './fixtures/game';
 type PipWindow = DevGameWindow & {
   __game: {
     heroView: { anim(): HeroAnim };
-    hero: import('three').Object3D;
+    hero: Object3D;
     renderer: { info: { programs: { cacheKey: string }[] | null } };
   };
 };
@@ -65,7 +66,7 @@ test('Pip is a skinned character with a blob shadow and the rim compiled in', as
     let skinned = 0;
     let bones = 0;
     g.hero.traverse((o) => {
-      const m = o as import('three').SkinnedMesh;
+      const m = o as SkinnedMesh;
       if (m.isSkinnedMesh) {
         skinned++;
         bones = m.skeleton.bones.length;
