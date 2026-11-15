@@ -10,6 +10,7 @@
  * - `heat`: the grate bed, 0–1: sine-in through the telegraph, 1 while live, cooling
  *   linearly over `coolMs` after the off tick.
  */
+import { clamp01, ease } from '@core/ease';
 import type { FlameState } from '@core/hazards';
 import { HAZARD_TIMING } from '@core/hazards';
 import { look } from './look';
@@ -20,9 +21,6 @@ export interface FlameVisual {
   heat: number;
 }
 
-const backOut = (x: number) => 1 + 2.70158 * (x - 1) ** 3 + 1.70158 * (x - 1) ** 2;
-const sineIn = (x: number) => 1 - Math.cos((x * Math.PI) / 2);
-const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 /** `ms / span` clamped to 0–1; a zero span is already done. */
 const progress = (ms: number, span: number) => (span > 0 ? clamp01(ms / span) : 1);
 
@@ -35,13 +33,13 @@ export function flameVisual(
   const f = look.flame;
   if (state === 'on') {
     const k = progress(intoMs, f.igniteMs);
-    out.size = k >= 1 ? 1 : f.igniteFrom + (1 - f.igniteFrom) * backOut(k);
+    out.size = k >= 1 ? 1 : f.igniteFrom + (1 - f.igniteFrom) * ease.backOut(k);
     out.alpha = 1;
     out.heat = 1;
   } else if (state === 'telegraph') {
     out.size = 0;
     out.alpha = 0;
-    out.heat = sineIn(progress(intoMs, HAZARD_TIMING.telegraph));
+    out.heat = ease.sineIn(progress(intoMs, HAZARD_TIMING.telegraph));
   } else {
     const k = progress(intoMs, f.collapseMs);
     out.size = f.collapseFrom + (f.collapseTo - f.collapseFrom) * k;

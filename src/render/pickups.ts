@@ -30,6 +30,7 @@ import {
 } from 'three';
 import type { MeshStandardMaterial } from 'three';
 import type { Gltf } from '@assets/models';
+import { clamp01, ease, yoyo } from '@core/ease';
 import type { GridTile } from '@core/generator';
 import { mulberry32 } from '@core/generator';
 import { tileToWorld } from '@core/grid';
@@ -95,16 +96,6 @@ export interface PickupsOptions {
   reducedMotion(): boolean;
 }
 
-/** Sine yoyo: 0 → 1 over `legMs`, back to 0 over the next `legMs`. */
-const yoyo = (t: number, legMs: number) => (1 - Math.cos((Math.PI * t) / legMs)) / 2;
-const clamp01 = (u: number) => Math.min(1, Math.max(0, u));
-const easeInOutSine = (u: number) => (1 - Math.cos(Math.PI * u)) / 2;
-const easeOutCubic = (u: number) => 1 - (1 - u) ** 3;
-const easeOutBack = (u: number) => {
-  const c1 = 1.70158;
-  return 1 + (c1 + 1) * (u - 1) ** 3 + c1 * (u - 1) ** 2;
-};
-
 /** Chest scale `[horizontal, vertical]` at `dt` ms into the opening. */
 function squash(dt: number): [number, number] {
   const p = look.pickups;
@@ -117,7 +108,7 @@ function squash(dt: number): [number, number] {
   let t = dt;
   for (const [ms, to] of legs) {
     if (t < ms) {
-      const e = easeInOutSine(clamp01(t / ms));
+      const e = ease.sineInOut(clamp01(t / ms));
       return [from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e];
     }
     t -= ms;
@@ -291,7 +282,7 @@ export function createPickupsView(kit: Gltf, opts: PickupsOptions): PickupsView 
         k.mesh.position.y = y;
         k.mesh.rotation.set(tilt, turn(p.keyTurnMs, 0), 0);
         const u = k.appearedAt === null ? 1 : clamp01((timeMs - k.appearedAt) / p.keyAppearMs);
-        const grow = u >= 1 ? 1 : p.keyAppearFrom + (1 - p.keyAppearFrom) * easeOutBack(u);
+        const grow = u >= 1 ? 1 : p.keyAppearFrom + (1 - p.keyAppearFrom) * ease.backOut(u);
         const size = p.keySize / KEY_LENGTH;
         k.mesh.scale.setScalar(size * grow);
         k.glow.scale.setScalar(p.glowSize * size * grow);
@@ -303,7 +294,7 @@ export function createPickupsView(kit: Gltf, opts: PickupsOptions): PickupsView 
       const [wide, tall] = dt >= 0 ? squash(dt) : [1, 1];
       chest.scale.set(size * wide, size * tall, size * wide);
       lid.rotation.x =
-        dt >= 0 ? (-p.lidOpenDeg * Math.PI * easeOutCubic(clamp01(dt / p.lidOpenMs))) / 180 : 0;
+        dt >= 0 ? (-p.lidOpenDeg * Math.PI * ease.cubicOut(clamp01(dt / p.lidOpenMs))) / 180 : 0;
       const burst = dt >= 0 && dt < p.burstMs ? 1 - dt / p.burstMs : 0;
       chestGold.emissiveIntensity =
         p.chestEmissive + p.chestPulse * yoyo(timeMs, p.chestPulseMs) + p.burstEmissive * burst;

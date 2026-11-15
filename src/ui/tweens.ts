@@ -5,18 +5,10 @@
  * DOM-free.
  */
 
-/** Phaser's eases, as v2 names them (`Cubic.easeInOut`, `Back.easeOut`, …). */
-export const ease = {
-  linear: (t: number) => t,
-  cubicOut: (t: number) => 1 - (1 - t) ** 3,
-  cubicInOut: (t: number) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2),
-  /** Phaser `Back.easeOut`, overshoot 1.70158. */
-  backOut: (t: number) => {
-    const s = 1.70158;
-    const u = t - 1;
-    return u * u * ((s + 1) * u + s) + 1;
-  },
-};
+import { ease } from '@core/ease';
+
+/** The shared eases (`@core/ease`), re-exported for the HUD. */
+export { ease };
 
 export interface TweenSpec {
   /** Start time on the HUD clock, ms. */
