@@ -72,6 +72,7 @@ describe('death view: the camera holds on the death spot', () => {
       expect(g.rig.focus.x).toBeCloseTo(held.x, 4);
       expect(g.rig.focus.z).toBeCloseTo(held.z, 4);
       expect(g.hero.object.rotation.y).toBeCloseTo(facingYaw('east'), 9);
+      expect(heroFrame(g.sim, 0).fallen).toBe(true);
     }
 
     while (!g.sim.snapshot().grace) g.tick(); // respawn at gone
@@ -79,5 +80,8 @@ describe('death view: the camera holds on the death spot', () => {
     expect(g.rig.focus.x).toBeCloseTo(start.x, 9);
     expect(g.rig.focus.z).toBeCloseTo(start.z + look.camera.lead, 9); // cut, facing south
     expect(g.sim.heroFacing()).toBe('south');
+    // Respawned but still locked (dying until unlock): the view is no longer fallen.
+    expect(g.sim.snapshot().dying).toBe(true);
+    expect(heroFrame(g.sim, 0)).toMatchObject({ fallen: false, moving: false });
   });
 });

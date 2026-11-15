@@ -154,6 +154,10 @@ export interface Sim {
    * doesn't turn and the camera's lead doesn't drift off the death spot.
    */
   heroFacing(): Dir;
+  /** A step is under way (the snapshot's `moving`, without building a snapshot). */
+  heroMoving(): boolean;
+  /** From a kill until the respawn at `DEATH_TIMING.gone` (the hero is not on the board). */
+  heroFallen(): boolean;
   on<K extends keyof SimEvents>(type: K, listener: (event: SimEvents[K]) => void): void;
   /**
    * Swap in the next level (state machine `building`): the hero goes to its start tile,
@@ -426,6 +430,12 @@ export function createSim({
     },
     heroFacing() {
       return death && !death.respawned ? death.facing : facing;
+    },
+    heroMoving() {
+      return step !== null;
+    },
+    heroFallen() {
+      return death !== null && !death.respawned;
     },
     on(type, listener) {
       listeners[type].push(listener);

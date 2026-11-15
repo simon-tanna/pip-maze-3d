@@ -6,8 +6,9 @@
  *   shortest arc over `look.hero.turnMs` of render time. The turn is render-only: the
  *   simulation's facing changes instantly at step start.
  * - The mixer runs on simulation time: each frame advances it to the `timeMs` it is given
- *   (`sim.timeAt(alpha)`), so it pauses, replays and freezes with the simulation, and it
- *   holds still while `dying`.
+ *   (`sim.timeAt(alpha)`), so it pauses, replays and freezes with the simulation. It holds
+ *   the death pose while `fallen` (kill → respawn at `DEATH_TIMING.gone`); on the respawn
+ *   it cuts straight to idle, so the start tile never shows the death pose.
  * - `walk` plays while `moving`, one full cycle per two tiles (one footfall per tile). The
  *   simulation keeps `moving` true across chained steps, so the walk never blends to idle
  *   between them; starting and stopping crossfade over `look.hero.fadeMs`. The clips own
@@ -72,19 +73,18 @@ export interface HeroFrame {
   timeMs: number;
   /** A step is under way (stays true across chained steps). */
   moving: boolean;
-  /** From a kill until input unlocks: the clips freeze. */
-  dying: boolean;
+  /** From a kill until the respawn (`DEATH_TIMING.gone`): the clips freeze. */
+  fallen: boolean;
 }
 
 /** The hero frame at `alpha`, read from the simulation (`main.ts` draws exactly this). */
 export function heroFrame(sim: Sim, alpha: number): HeroFrame {
-  const { moving, dying } = sim.snapshot();
   return {
     position: sim.heroPosition(alpha),
     facing: sim.heroFacing(), // held through the death window, like the position
     timeMs: sim.timeAt(alpha),
-    moving,
-    dying,
+    moving: sim.heroMoving(),
+    fallen: sim.heroFallen(),
   };
 }
 
@@ -203,6 +203,7 @@ export function createHeroView(character: Character): HeroView {
   let current: HeroClip = 'idle';
   const actions = { idle, walk };
   let lastMs: number | null = null;
+  let wasFallen = false;
 
   const fadeTo = (next: HeroClip) => {
     const fade = look.hero.fadeMs / 1000;
@@ -220,7 +221,7 @@ export function createHeroView(character: Character): HeroView {
 
   return {
     object,
-    update({ position, facing, timeMs, moving, dying }) {
+    update({ position, facing, timeMs, moving, fallen }) {
       const h = look.hero;
       for (const m of materials) m.roughness = h.roughness;
       rim.rimStrength.value = h.rimStrength;
@@ -240,10 +241,17 @@ export function createHeroView(character: Character): HeroView {
       object.rotation.y = turn.from + turn.delta * Math.min(Math.max(t, 0), 1);
 
       // Clips: advance to this frame's simulation time, then switch (the fade starts now).
-      const dt = lastMs === null || dying ? 0 : Math.max(0, timeMs - lastMs) / 1000;
+      const dt = lastMs === null || fallen ? 0 : Math.max(0, timeMs - lastMs) / 1000;
       lastMs = timeMs;
+      if (wasFallen && !fallen) {
+        // Respawned: drop the held death pose outright rather than fading out of it.
+        mixer.stopAllAction();
+        idle.reset().setEffectiveWeight(1).play();
+        current = 'idle';
+      }
+      wasFallen = fallen;
       mixer.update(dt);
-      if (!dying) {
+      if (!fallen) {
         const want: HeroClip = moving ? 'walk' : 'idle';
         if (want !== current) {
           fadeTo(want);

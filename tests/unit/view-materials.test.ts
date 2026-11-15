@@ -50,7 +50,7 @@ describe('view materials follow look', () => {
       facing: 'south',
       timeMs: 0,
       moving: false,
-      dying: false,
+      fallen: false,
     });
 
     const pip = named(hero.object, 'pip');

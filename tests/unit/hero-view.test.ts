@@ -24,7 +24,7 @@ const at = (timeMs: number, over: Partial<HeroFrame> = {}): HeroFrame => ({
   facing: 'south' as Dir,
   timeMs,
   moving: false,
-  dying: false,
+  fallen: false,
   ...over,
 });
 /** Walk-cycle phase, in footfalls (2 per cycle), unwrapped against an expected value. */
@@ -111,14 +111,24 @@ describe('hero view: clips on simulation time', () => {
     expect(near(hero.anim().walkPhase, 90 / (2 * STEP_MS))).toBeLessThan(1e-6);
   });
 
-  it('freezes while dying', () => {
+  it('freezes from the kill until the respawn', () => {
     const hero = pip();
     hero.update(at(0, { moving: true }));
     hero.update(at(60, { moving: true }));
     const before = hero.anim();
-    hero.update(at(200, { moving: false, dying: true }));
-    hero.update(at(400, { moving: false, dying: true }));
+    hero.update(at(200, { moving: false, fallen: true }));
+    hero.update(at(400, { moving: false, fallen: true }));
     expect(hero.anim()).toEqual(before);
+  });
+
+  it('idles at once on the respawn, with no crossfade out of the death pose', () => {
+    const hero = pip();
+    hero.update(at(0, { moving: true }));
+    for (let t = 10; t <= 200; t += 10) hero.update(at(t, { moving: true }));
+    hero.update(at(210, { fallen: true }));
+    hero.update(at(480, { fallen: true }));
+    hero.update(at(481)); // respawned: standing on the start tile, input still locked
+    expect(hero.anim()).toMatchObject({ clip: 'idle', idleWeight: 1, walkWeight: 0 });
   });
 
   it('carries no light: the torch stays a child of the scene', () => {
