@@ -303,10 +303,16 @@ describe('loading a level resets hazards', () => {
     expect(g.types().filter((t) => t === 'died')).toHaveLength(1);
   });
 
-  it('flames() reports each flame’s current state', () => {
+  it('flames() reports each flame’s current state and how long it has been in it', () => {
     const g = setup([{ tile: { col: 4, row: 1 }, phase: 0 }]);
-    expect(g.sim.flames()).toEqual([{ tile: { col: 4, row: 1 }, phase: 0, state: 'telegraph' }]);
+    expect(g.sim.flames()).toEqual([
+      { tile: { col: 4, row: 1 }, phase: 0, state: 'telegraph', intoMs: 0 },
+    ]);
     g.until(600);
-    expect(g.sim.flames()[0]?.state).toBe('on');
+    const [now] = g.sim.flames();
+    expect(now?.state).toBe('on');
+    // The same hazard clock as the rule: ms since this go-live, one tick's worth at most off.
+    const levelMs = g.sim.snapshot().levelMs;
+    expect(now?.intoMs).toBeCloseTo(levelMs - 500, 6);
   });
 });

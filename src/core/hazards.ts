@@ -33,12 +33,28 @@ const TIME_EPSILON = 1e-6;
 
 /** A flame's state at hazard-clock time `t`, ms, given its start delay `phase`. */
 export function flameState(t: number, phase: number): FlameState {
+  return flameClock(t, phase).state;
+}
+
+export interface FlameClock {
+  state: FlameState;
+  /**
+   * Ms the flame has spent in `state` (never negative). Before its phase a flame counts as
+   * off for `flameOff + t`, so it reads as long settled rather than just extinguished.
+   */
+  intoMs: number;
+}
+
+/** `flameState` plus how long the flame has been in that state: what views animate from. */
+export function flameClock(t: number, phase: number): FlameClock {
   const since = t - phase + TIME_EPSILON;
-  if (since < 0) return 'off';
+  if (since < 0) return { state: 'off', intoMs: HAZARD_TIMING.flameOff + t };
   const c = since % FLAME_CYCLE;
-  if (c < HAZARD_TIMING.telegraph) return 'telegraph';
-  if (c < HAZARD_TIMING.telegraph + HAZARD_TIMING.flameOn) return 'on';
-  return 'off';
+  const { telegraph, flameOn } = HAZARD_TIMING;
+  const into = (start: number) => Math.max(0, c - TIME_EPSILON - start);
+  if (c < telegraph) return { state: 'telegraph', intoMs: into(0) };
+  if (c < telegraph + flameOn) return { state: 'on', intoMs: into(telegraph) };
+  return { state: 'off', intoMs: into(telegraph + flameOn) };
 }
 
 /** v2's `hazardPhase`: a seeded start delay in [0, cycle) for the hazard on `tile`. */

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { generateLevel, tileRng } from '@core/generator';
-import { FLAME_CYCLE, flamePhase, flameState, HAZARD_TIMING, levelFlames } from '@core/hazards';
+import {
+  FLAME_CYCLE,
+  flameClock,
+  flamePhase,
+  flameState,
+  HAZARD_TIMING,
+  levelFlames,
+} from '@core/hazards';
 
 describe('flame cycle', () => {
   it('ports v2’s flame timing unchanged, plus the blade’s spin', () => {
@@ -34,6 +41,35 @@ describe('flame cycle', () => {
 
   it('a zero phase starts in the telegraph at t = 0', () => {
     expect(flameState(0, 0)).toBe('telegraph');
+  });
+});
+
+describe('flame clock (how long a flame has been in its state)', () => {
+  it('agrees with flameState and counts ms into the current state', () => {
+    const phase = 700;
+    const at = (ms: number) => flameClock(phase + ms, phase);
+    expect(at(0)).toEqual({ state: 'telegraph', intoMs: 0 });
+    expect(at(300).intoMs).toBeCloseTo(300, 6);
+    expect(at(500).state).toBe('on');
+    expect(at(500).intoMs).toBeCloseTo(0, 6);
+    expect(at(2600).state).toBe('off');
+    expect(at(2600).intoMs).toBeCloseTo(100, 6);
+    expect(at(4500 * 3 + 520).intoMs).toBeCloseTo(20, 6);
+    for (let t = 0; t < 12000; t += 37) {
+      expect(flameClock(t, phase).state).toBe(flameState(t, phase));
+    }
+  });
+
+  it('before its phase a flame has been off for at least a whole off window (settled)', () => {
+    expect(flameClock(0, 900)).toEqual({ state: 'off', intoMs: HAZARD_TIMING.flameOff });
+    expect(flameClock(400, 900).intoMs).toBe(HAZARD_TIMING.flameOff + 400);
+  });
+
+  it('a threshold reached by tick arithmetic counts as reached, at intoMs ≥ 0', () => {
+    const t = (1000 / 60) * 30; // 500 ms in ticks
+    const c = flameClock(t, 0);
+    expect(c.state).toBe('on');
+    expect(c.intoMs).toBeGreaterThanOrEqual(0);
   });
 });
 

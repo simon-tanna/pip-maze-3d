@@ -1,10 +1,19 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { LinearFilter, LinearMipmapLinearFilter, ShaderLib } from 'three';
-import type { DataTexture, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D } from 'three';
+import type { Material } from 'three';
+import type {
+  DataTexture,
+  Mesh,
+  MeshBasicMaterial,
+  MeshStandardMaterial,
+  Object3D,
+  ShaderMaterial,
+} from 'three';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { instantiateCharacter } from '@assets/models';
+import type { Gltf } from '@assets/models';
 import { createBladesView } from '@render/blades';
-import { createFlamesView } from '@render/flames';
+import { createFlamesView, FLAME_MODEL } from '@render/flames';
 import { createHeroView, HERO_MODEL } from '@render/hero';
 import { look } from '@render/look';
 import { color } from '@render/palette';
@@ -18,6 +27,17 @@ const mat = (o: Object3D | undefined) => {
   return (o as Mesh).material as MeshStandardMaterial;
 };
 const named = (root: Object3D, name: string) => root.getObjectByName(name);
+
+/** The committed grate GLB, as `loadGltf` would hand it to the view. */
+const loadFlameKit = async (): Promise<Gltf> => {
+  const scene = (await parseModel(FLAME_MODEL)).scene;
+  return {
+    getNode(node) {
+      const m = scene.getObjectByName(node) as Mesh;
+      return { geometry: m.geometry, material: m.material as Material };
+    },
+  };
+};
 
 let pipGltf: GLTF;
 beforeAll(async () => {
@@ -130,24 +150,19 @@ describe('view materials follow look', () => {
     expect(mat(named(view.group, 'head')).metalness).toBe(0.7);
   });
 
-  it('flames: off and lit roughness', () => {
-    const view = createFlamesView();
-    const flames = [
-      { tile: { col: 1, row: 1 } },
-      { tile: { col: 2, row: 1 } },
-      { tile: { col: 3, row: 1 } },
-    ];
-    view.build(flames);
-    look.flame.offRoughness = 0.11;
-    look.flame.litRoughness = 0.22;
-    view.update([
-      { tile: { col: 1, row: 1 }, state: 'off' },
-      { tile: { col: 2, row: 1 }, state: 'telegraph' },
-      { tile: { col: 3, row: 1 }, state: 'on' },
-    ]);
-    expect(mat(named(view.group, 'flame_0')).roughness).toBe(0.11);
-    expect(mat(named(view.group, 'flame_1')).roughness).toBe(0.22);
-    expect(mat(named(view.group, 'flame_2')).roughness).toBe(0.22);
+  it('flames: bed roughness, column gain and glow size follow look', async () => {
+    const view = createFlamesView(await loadFlameKit());
+    view.build([{ tile: { col: 1, row: 1 } }]);
+    look.flame.bedRoughness = 0.11;
+    look.flame.gain = 3.3;
+    look.flame.glowSize = 2.5;
+    view.update([{ tile: { col: 1, row: 1 }, state: 'on', intoMs: 500 }], { timeMs: 0 });
+    const flame = named(view.group, 'flame_0');
+    if (!flame) throw new Error('no flame_0');
+    expect(mat(named(flame, 'bed')).roughness).toBe(0.11);
+    const column = (named(flame, 'column') as Mesh).material as ShaderMaterial;
+    expect(column.uniforms['uGain']?.value).toBe(3.3);
+    expect(named(flame, 'glow')?.scale.x).toBe(2.5);
   });
 
   it('pickups: gold metalness and roughness', () => {

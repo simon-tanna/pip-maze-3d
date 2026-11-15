@@ -12,6 +12,7 @@ import {
   Vector3,
 } from 'three';
 import type { Texture, WebGLRenderer } from 'three';
+import { TILE_SIZE } from '@core/grid';
 import type { MazeBounds } from '@core/grid';
 import { KEY_SHADOW_MAP_SIZE, look } from './look';
 import { color } from './palette';
@@ -26,7 +27,10 @@ export interface LightRig {
   key: DirectionalLight;
   hemi: HemisphereLight;
   torch: PointLight;
-  /** Flame-pool slots. Always exist; intensity 0 when idle. The flame allocator owns them. */
+  /**
+   * Flame-pool slots. Always exist; intensity 0 when idle. The flame allocator
+   * (`flame-pools.ts`) owns them, except while the light bench is on.
+   */
   pools: readonly PointLight[];
   /** Aim the key light at the map's centre and size its shadow frustum to cover all of it. */
   fitShadowTo(bounds: MazeBounds): void;
@@ -36,9 +40,20 @@ export interface LightRig {
 export interface LightRigFrame {
   /** Hero position; the torch sits just south of it. */
   hero?: Vector3;
-  /** Light bench: every pool slot at peak. Turning it off drops the pools to 0. */
+  /**
+   * Light bench: every pool slot at peak, two tiles round the hero. Turning it off drops
+   * the pools to 0, and the flame allocator takes them back on its next frame.
+   */
   poolsAtPeak?: boolean;
 }
+
+/** Where the bench puts the pool slots: two tiles west, east, north and south of the hero. */
+const BENCH_SPOTS = [
+  [-2, 0],
+  [2, 0],
+  [0, -2],
+  [0, 2],
+] as const;
 
 /** North-west in world space: north is -z, west is -x. */
 const NORTH_WEST = new Vector3(-1, 0, -1).normalize();
@@ -105,7 +120,13 @@ export function createLightRig(scene: Scene): LightRig {
 
       for (const pool of pools) pool.distance = l.poolDistance;
       if (poolsAtPeak) {
-        for (const pool of pools) pool.intensity = l.poolIntensity * l.poolPeakScale;
+        pools.forEach((pool, i) => {
+          pool.intensity = l.poolIntensity * l.poolPeakScale;
+          const [dc, dr] = BENCH_SPOTS[i % BENCH_SPOTS.length] ?? [0, 0];
+          if (hero) {
+            pool.position.set(hero.x + dc * TILE_SIZE, l.poolHeight, hero.z + dr * TILE_SIZE);
+          }
+        });
       } else if (benchWasOn) {
         for (const pool of pools) pool.intensity = 0;
       }

@@ -3,7 +3,7 @@ import type { Camera, Light } from 'three';
 import type { WorldXZ } from '@core/grid';
 import { loadCharacter, loadGltf } from '@assets/models';
 import { planChamber } from '@core/chamber-plan';
-import { mazeBounds, tileToWorld } from '@core/grid';
+import { mazeBounds } from '@core/grid';
 import { resolveRun } from '@core/run-seed';
 import type { RunStart } from '@core/run-seed';
 import { bindKeyboard, bindRestart } from '@game/keyboard';
@@ -15,7 +15,7 @@ import { createBladesView } from '@render/blades';
 import { createCameraRig } from '@render/camera-rig';
 import { createChamberView } from '@render/chamber';
 import { CHAMBER_KIT } from '@render/chamber-kit';
-import { createFlamesView } from '@render/flames';
+import { createFlamesView, FLAME_MODEL } from '@render/flames';
 import { createFrameStats } from '@render/frame-stats';
 import { createHeroView, HERO_MODEL, heroFrame } from '@render/hero';
 import { createLevelViews } from '@render/level-views';
@@ -149,7 +149,11 @@ async function boot(shell: Shell): Promise<void> {
   const run = resolveRun(new URLSearchParams(location.search), drawSeed);
   for (const warning of run.warnings) console.warn(`[run] ${warning}`);
   logRun(run);
-  const [kit, pip] = await Promise.all([loadGltf(CHAMBER_KIT), loadCharacter(HERO_MODEL)]);
+  const [kit, pip, flameKit] = await Promise.all([
+    loadGltf(CHAMBER_KIT),
+    loadCharacter(HERO_MODEL),
+    loadGltf(FLAME_MODEL),
+  ]);
   screens.hide(); // the iris stays shut until the first chamber is built
 
   const session = createSession();
@@ -160,7 +164,7 @@ async function boot(shell: Shell): Promise<void> {
   scene.add(chamber.group);
   const pickups = createPickupsView();
   scene.add(pickups.group);
-  const flames = createFlamesView({ truth: import.meta.env.DEV });
+  const flames = createFlamesView(flameKit, { truth: import.meta.env.DEV, pools: rig.pools });
   scene.add(flames.group);
   const blades = createBladesView();
   scene.add(blades.group);
@@ -200,26 +204,6 @@ async function boot(shell: Shell): Promise<void> {
   levels.add({
     build: ({ index }) => hud.level({ index, requiredKeys: sim.snapshot().requiredKeys }),
   });
-  levels.add({
-    // Light bench: the 4 pool slots sit around the start tile, in view. They move; the
-    // rig itself never changes.
-    build() {
-      const start = sim.snapshot().tile;
-      rig.pools.forEach((pool, i) => {
-        const [dc, dr] = (
-          [
-            [-2, 0],
-            [2, 0],
-            [0, -2],
-            [0, 2],
-          ] as const
-        )[i % 4] ?? [0, 0];
-        const { x, z } = tileToWorld(start.col + dc, start.row + dr);
-        pool.position.set(x, look.lights.poolHeight, z);
-      });
-    },
-  });
-
   /** Dev-only per-frame hooks (the blade contact-zone overlay). */
   const devFrame: (() => void)[] = [];
   /** Bring every view and the camera to `alpha`, without drawing. */
@@ -231,7 +215,7 @@ async function boot(shell: Shell): Promise<void> {
     scene.environmentIntensity = look.lights.envIntensity;
     chamber.update();
     pickups.update(sim);
-    flames.update(sim.flames());
+    flames.update(sim.flames(), { timeMs, hero: h.position }); // before the rig: the bench wins
     blades.update(sim.blades());
     for (const f of devFrame) f();
     hud.update(timeMs);

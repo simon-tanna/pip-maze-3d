@@ -73,4 +73,17 @@ describe('light rig', () => {
     rig.update({ poolsAtPeak: false });
     for (const pool of rig.pools) expect(pool.intensity).toBe(0);
   });
+
+  it('the bench gathers the pool slots round the hero, two tiles out, in view', () => {
+    const rig = createLightRig(new Scene());
+    rig.update({ hero: new Vector3(11, 0, 7), poolsAtPeak: true });
+    const spots = rig.pools.map((p) => [p.position.x, p.position.z]);
+    expect(spots).toEqual([
+      [7, 7],
+      [15, 7],
+      [11, 3],
+      [11, 11],
+    ]);
+    for (const p of rig.pools) expect(p.position.y).toBe(look.lights.poolHeight);
+  });
 });

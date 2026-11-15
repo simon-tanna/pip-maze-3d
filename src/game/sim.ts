@@ -30,7 +30,7 @@ import { tileToWorld } from '@core/grid';
 import type { GridPos, WorldXZ } from '@core/grid';
 import type { TileMap } from '@core/generator';
 import { startTile } from '@core/level';
-import { flameState } from '@core/hazards';
+import { flameClock, flameState } from '@core/hazards';
 import type { Flame, FlameState } from '@core/hazards';
 import { bladeAngle, bladeTouches } from '@core/blade';
 import type { Blade } from '@core/blade';
@@ -122,6 +122,8 @@ export interface SimEvents {
 /** A flame and its state on the hazard clock now. */
 export interface FlameNow extends Flame {
   state: FlameState;
+  /** Ms into `state` on the same clock (`flameClock`): what the flame view animates from. */
+  intoMs: number;
 }
 
 /** A blade and its angle θ on the hazard clock now (degrees, `@core/blade`). */
@@ -456,7 +458,14 @@ export function createSim({
       graceUntilMs = -Infinity;
       input.clear();
     },
-    flames: () => flames.map((f, i) => ({ ...f, state: flameStates[i] ?? 'off' })),
+    flames: () => {
+      const t = levelMs();
+      return flames.map((f, i) => ({
+        ...f,
+        state: flameStates[i] ?? 'off',
+        intoMs: flameClock(t, f.phase).intoMs,
+      }));
+    },
     blades: () => {
       const t = levelMs();
       return blades.map((b) => ({ ...b, angle: bladeAngle(t, b.phase) }));
