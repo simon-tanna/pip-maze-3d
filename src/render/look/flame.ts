@@ -14,6 +14,8 @@ export const flame = section(
     gain: 2.4,
     /** fbm scroll speed up the column. */
     scroll: 3.2,
+    /** Column width at size 0, as a fraction of full; it widens to 1 with the size. */
+    columnWidthFrom: 0.6,
     /** Ignite: the column grows back-out from this size to 1 … */
     igniteFrom: 0.3,
     /** … over this many ms from the go-live tick. */
@@ -44,6 +46,10 @@ export const flame = section(
     /** Ember life, ms. */
     emberLifeMin: 500,
     emberLifeMax: 900,
+    /** Embers spawn over the grate's bars, inside this radius, m. */
+    emberRadius: 0.5,
+    /** Ember sideways jitter, m/s. */
+    emberSpread: 0.35,
     /** Glow decal size, m (square). */
     glowSize: 3.4,
     /** Glow intensity at full heat in the telegraph (EMBER → FIRE_HOT). */
@@ -61,6 +67,7 @@ export const flame = section(
     height: [0.5, 6, 0.05],
     gain: [0, 6, 0.05],
     scroll: [0, 10, 0.1],
+    columnWidthFrom: [0, 1, 0.01],
     igniteFrom: [0, 1, 0.01],
     igniteMs: [0, 500, 5],
     collapseFrom: [0, 0.25, 0.01],
@@ -77,6 +84,8 @@ export const flame = section(
     emberRiseMax: [0, 4, 0.05],
     emberLifeMin: [50, 2000, 10],
     emberLifeMax: [50, 2000, 10],
+    emberRadius: [0, 1, 0.01],
+    emberSpread: [0, 2, 0.01],
     glowSize: [0.5, 6, 0.05],
     glowTelegraph: [0, 4, 0.01],
     glowLive: [0, 4, 0.01],

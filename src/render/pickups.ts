@@ -241,7 +241,8 @@ export function createPickupsView(kit: Gltf, opts: PickupsOptions): PickupsView 
       if (dt < 0 || dt >= p.shakeMs) return { x: 0, y: 0 };
       const u = dt / p.shakeMs;
       const a = p.shakeAmplitude * (1 - u);
-      return { x: a * Math.sin(u * Math.PI * 8), y: a * Math.cos(u * Math.PI * 6) };
+      const turn = 2 * Math.PI * u;
+      return { x: a * Math.sin(turn * p.shakeCyclesX), y: a * Math.cos(turn * p.shakeCyclesY) };
     },
     motion() {
       const p = look.pickups;
@@ -298,7 +299,7 @@ export function createPickupsView(kit: Gltf, opts: PickupsOptions): PickupsView 
       const burst = dt >= 0 && dt < p.burstMs ? 1 - dt / p.burstMs : 0;
       chestGold.emissiveIntensity =
         p.chestEmissive + p.chestPulse * yoyo(timeMs, p.chestPulseMs) + p.burstEmissive * burst;
-      CHEST_GLOW.opacity = p.chestGlowOpacity * (1 + 1.5 * burst);
+      CHEST_GLOW.opacity = p.chestGlowOpacity * (1 + p.burstGlow * burst);
       chestGlow.scale.setScalar(p.chestGlowSize * size);
     },
   };

@@ -198,10 +198,6 @@ const glowMaterial = pool(newGlowMaterial);
 
 /** The shared ember emitter's capacity (~36/s × ≤ 0.9 s per telegraphing flame). */
 const EMBER_CAPACITY = 256;
-/** Embers spawn over the grate's bars, inside this radius, m. */
-const EMBER_RADIUS = 0.5;
-/** Sideways jitter, m/s. */
-const EMBER_SPREAD = 0.35;
 /** Render-local RNG seed for embers (not level-visible state, but replayable). */
 const EMBER_SEED = 0x0f1a;
 const ORIGIN: WorldXZ = { x: 0, z: 0 };
@@ -320,13 +316,13 @@ export function createFlamesView(kit: Gltf, opts: FlamesViewOptions = {}): Flame
     const i = emberNext;
     emberNext = (emberNext + 1) % EMBER_CAPACITY;
     const a = rng() * Math.PI * 2;
-    const r = Math.sqrt(rng()) * EMBER_RADIUS;
+    const r = Math.sqrt(rng()) * f.emberRadius;
     emberPos[i * 3] = at.x + Math.cos(a) * r;
     emberPos[i * 3 + 1] = 0.05;
     emberPos[i * 3 + 2] = at.z + Math.sin(a) * r;
-    emberVel[i * 3] = (rng() - 0.5) * EMBER_SPREAD - Math.cos(a) * r * 0.8;
+    emberVel[i * 3] = (rng() - 0.5) * f.emberSpread - Math.cos(a) * r * 0.8;
     emberVel[i * 3 + 1] = f.emberRiseMin + rng() * (f.emberRiseMax - f.emberRiseMin);
-    emberVel[i * 3 + 2] = (rng() - 0.5) * EMBER_SPREAD - Math.sin(a) * r * 0.8;
+    emberVel[i * 3 + 2] = (rng() - 0.5) * f.emberSpread - Math.sin(a) * r * 0.8;
     emberSpan[i] = f.emberLifeMin + rng() * (f.emberLifeMax - f.emberLifeMin);
     emberLife[i] = 0;
   };
@@ -466,7 +462,7 @@ export function createFlamesView(kit: Gltf, opts: FlamesViewOptions = {}): Flame
         p.bed.emissiveIntensity = v.heat * (on ? f.bedLive * flick : f.bedTelegraph);
 
         // A quiet column collapses to a point: still drawn (so compiled), but no fragments.
-        const width = v.alpha > 0 ? 0.6 + 0.4 * v.size : 0;
+        const width = v.alpha > 0 ? f.columnWidthFrom + (1 - f.columnWidthFrom) * v.size : 0;
         p.column.scale.set(width, v.alpha > 0 ? f.height * v.size : 0, width);
         const column = p.column.material;
         set(column, 'uTime', t);

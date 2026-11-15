@@ -38,6 +38,8 @@ export const pickups = section(
     burstEmissive: 2.5,
     /** How long the burst takes to fade, ms. */
     burstMs: 450,
+    /** Extra chest floor-glow opacity at the peak of the burst, × `chestGlowOpacity`. */
+    burstGlow: 1.5,
     /** Metalness of every gold surface (coins, keys, chest). */
     goldMetalness: 1,
     /** Roughness of the key and coin gold. */
@@ -58,6 +60,9 @@ export const pickups = section(
     /** Chest-open camera shake: peak offset, m, and duration, ms. */
     shakeAmplitude: 0.12,
     shakeMs: 160,
+    /** Shake cycles over `shakeMs`, screen x and y (different, so it doesn't read as a line). */
+    shakeCyclesX: 4,
+    shakeCyclesY: 3,
     /** Key fade-in (reveal and respawn): start scale and duration, ms (Back-out). */
     keyAppearFrom: 0.4,
     keyAppearMs: 500,
@@ -85,6 +90,7 @@ export const pickups = section(
     chestPulseMs: [100, 3000, 10],
     burstEmissive: [0, 20, 0.1],
     burstMs: [50, 2000, 10],
+    burstGlow: [0, 6, 0.05],
     goldMetalness: [0, 1, 0.01],
     goldRoughness: [0, 1, 0.01],
     chestRoughness: [0, 1, 0.01],
@@ -99,6 +105,8 @@ export const pickups = section(
     lidOpenMs: [20, 1000, 10],
     shakeAmplitude: [0, 1, 0.01],
     shakeMs: [0, 1000, 10],
+    shakeCyclesX: [0, 12, 0.5],
+    shakeCyclesY: [0, 12, 0.5],
     keyAppearFrom: [0, 1, 0.01],
     keyAppearMs: [50, 2000, 10],
     glowSize: [0, 4, 0.05],

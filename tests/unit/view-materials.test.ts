@@ -149,6 +149,7 @@ describe('view materials follow look', () => {
     look.flame.bedRoughness = 0.11;
     look.flame.gain = 3.3;
     look.flame.glowSize = 2.5;
+    look.flame.columnWidthFrom = 0.3;
     view.update([{ tile: { col: 1, row: 1 }, state: 'on', intoMs: 500 }], {
       timeMs: 0,
       levelMs: 0,
@@ -159,6 +160,52 @@ describe('view materials follow look', () => {
     const column = (named(flame, 'column') as Mesh).material as ShaderMaterial;
     expect(column.uniforms['uGain']?.value).toBe(3.3);
     expect(named(flame, 'glow')?.scale.x).toBe(2.5);
+    expect(named(flame, 'column')?.scale.x).toBeCloseTo(1, 9); // full size: width 1
+    view.update([{ tile: { col: 1, row: 1 }, state: 'off', intoMs: 0 }], {
+      timeMs: 16,
+      levelMs: 16,
+    });
+    const size = look.flame.collapseFrom;
+    expect(named(flame, 'column')?.scale.x).toBeCloseTo(0.3 + 0.7 * size, 9);
+  });
+
+  it('flames: embers spawn inside look.flame.emberRadius', async () => {
+    const view = createFlamesView(gltfKit(await parseModel(FLAME_MODEL), FLAME_MODEL));
+    view.build([{ tile: { col: 1, row: 1 } }]);
+    look.flame.emberRadius = 0.1;
+    look.flame.emberSpread = 0;
+    const at = (ms: number) => ({ timeMs: ms, levelMs: ms });
+    view.update([{ tile: { col: 1, row: 1 }, state: 'telegraph', intoMs: 0 }], at(0));
+    view.update([{ tile: { col: 1, row: 1 }, state: 'telegraph', intoMs: 100 }], at(100));
+    const embers = named(view.group, 'embers') as Mesh;
+    const pos = embers.geometry.getAttribute('position');
+    const centre = 2 + 1; // tile 1's centre, TILE_SIZE 2
+    let seen = 0;
+    for (let i = 0; i < pos.count; i++) {
+      if (pos.getY(i) === 0) continue; // never spawned
+      seen++;
+      // Spawned within 0.1 m; drifted inward (spread 0) for at most 100 ms since.
+      expect(Math.hypot(pos.getX(i) - centre, pos.getZ(i) - centre)).toBeLessThanOrEqual(0.1);
+    }
+    expect(seen).toBeGreaterThan(0);
+  });
+
+  it('pickups: the chest-open burst glow and the shake cycles follow look', () => {
+    const view = createPickupsView(gltfKit(pickupsGltf, PICKUPS_MODEL), {
+      reducedMotion: () => false,
+    });
+    view.build({ coins: [], key: { col: 2, row: 1 }, key2: null, exitCol: 3, exitRow: 1 }, 0);
+    look.pickups.burstGlow = 4;
+    look.pickups.shakeCyclesX = 1;
+    look.pickups.shakeCyclesY = 1;
+    view.openChest(1000);
+    view.update({ coinVisible: () => true, keyVisible: () => true }, 1000);
+    const glow = mat(named(view.group, 'chest_glow'));
+    expect(glow.opacity).toBeCloseTo(look.pickups.chestGlowOpacity * 5, 9);
+    // One cycle over the shake: x crosses zero half-way, y is at its trough.
+    const half = view.shake(1000 + look.pickups.shakeMs / 2);
+    expect(half.x).toBeCloseTo(0, 9);
+    expect(half.y).toBeCloseTo(-look.pickups.shakeAmplitude / 2, 9);
   });
 
   it('pickups: gold metalness and roughness', () => {
