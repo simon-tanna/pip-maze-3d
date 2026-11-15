@@ -137,6 +137,29 @@ describe('decor view', () => {
     expect(lights).toEqual([]);
   });
 
+  it('update re-lays the plan when a look.decor value changes, and only then', () => {
+    const saved = { ...look.decor };
+    try {
+      const v = createDecorView(kit);
+      v.build(PLAN);
+      const pot = meshOf(v.group, 'pot');
+      const before = instance(pot, 0).p.clone();
+      const version = pot.instanceMatrix.version;
+      v.update();
+      expect(pot.instanceMatrix.version).toBe(version); // unchanged look: no upload
+      look.decor.inset += 0.2;
+      v.update();
+      expect(instance(pot, 0).p.z).toBeCloseTo(before.z + 0.2, 6); // a wall to the north
+      expect(pot.instanceMatrix.version).toBeGreaterThan(version);
+      const after = pot.instanceMatrix.version;
+      look.decor.vineChance = 0.9; // a plan input: build-time only
+      v.update();
+      expect(pot.instanceMatrix.version).toBe(after);
+    } finally {
+      Object.assign(look.decor, saved);
+    }
+  });
+
   it('casts shadows from the floor props, not from the moss and vines on the wall', () => {
     const v = createDecorView(kit);
     for (const kind of ['moss', 'vine']) {

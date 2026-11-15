@@ -3,7 +3,7 @@ import type { Camera, Light } from 'three';
 import type { WorldXZ } from '@core/grid';
 import { loadCharacter, loadGltf } from '@assets/models';
 import { planChamber } from '@core/chamber-plan';
-import { planDecor, planVines } from '@core/decor';
+import { planProps } from '@core/decor';
 import { mazeBounds } from '@core/grid';
 import { resolveRun } from '@core/run-seed';
 import type { RunStart } from '@core/run-seed';
@@ -227,8 +227,7 @@ async function boot(shell: Shell): Promise<void> {
     },
   });
   levels.add({
-    build: ({ level, seed }) =>
-      decor.build([...planDecor(level, seed), ...planVines(level, seed, look.decor.vineChance)]),
+    build: ({ level, seed }) => decor.build(planProps(level, seed, look.decor.vineChance)),
   }); // counts only
   levels.add({
     build: ({ level, seed }) => pickups.build(level, seed),
@@ -256,6 +255,7 @@ async function boot(shell: Shell): Promise<void> {
     cameraRig.update(h.position, h.facing, timeMs, shake);
     scene.environmentIntensity = look.lights.envIntensity;
     chamber.update();
+    decor.update();
     pickups.update(sim, timeMs);
     flames.update(sim.flames(), { timeMs, levelMs: sim.levelAt(alpha), hero: h.position }); // before the rig: the bench wins
     blades.update(sim.blades());

@@ -59,7 +59,19 @@ export interface DecorView {
   readonly group: Group;
   /** Lay out a plan. Reuses every mesh; recomputes each bounding sphere. */
   build(plan: readonly DecorPlacement[]): void;
+  /**
+   * Per frame: re-lays the current plan when a `look.decor` placement value has changed
+   * since the last layout (panel edits are live). `vineChance` feeds the plan, not the
+   * layout, so it shows on the next build.
+   */
+  update(): void;
 }
+
+type DecorLook = typeof look.decor;
+/** The `look.decor` values `decorMatrix` reads: all but the plan's `vineChance`. */
+const LAYOUT_KEYS = (Object.keys(look.decor) as (keyof DecorLook)[]).filter(
+  (k) => k !== 'vineChance',
+);
 
 const Y = new Vector3(0, 1, 0);
 const q = new Quaternion();
@@ -69,7 +81,7 @@ const scale = new Vector3();
 /** How far a wall prop of `width` may slide either way and stay inside its tile's wall. */
 const slide = (width: number) => Math.max(0, (TILE_SIZE - width) / 2);
 
-/** World matrix for one placement (reads `look.decor`). */
+/** World matrix for one placement (reads `look.decor`; the view re-lays on a change). */
 export function decorMatrix(d: DecorPlacement, out: Matrix4): Matrix4 {
   const D = look.decor;
   const wall = WALL[d.side];
@@ -113,20 +125,33 @@ export function createDecorView(kit: Gltf): DecorView {
   }
 
   const m = new Matrix4();
+  let current: readonly DecorPlacement[] = [];
+  /** The look values of the last layout. */
+  const laidOut = { ...look.decor };
+  const layoutChanged = () => {
+    for (const k of LAYOUT_KEYS) if (look.decor[k] !== laidOut[k]) return true;
+    return false;
+  };
+  const build = (plan: readonly DecorPlacement[]) => {
+    current = plan;
+    Object.assign(laidOut, look.decor);
+    for (const mesh of meshes.values()) mesh.count = 0;
+    for (const d of plan) {
+      const mesh = meshes.get(d.kind);
+      if (!mesh) throw new Error(`no decor mesh for ${d.kind}`);
+      if (mesh.count >= CAPACITY) throw new Error(`${mesh.name}: plan exceeds ${CAPACITY}`);
+      mesh.setMatrixAt(mesh.count++, decorMatrix(d, m));
+    }
+    for (const mesh of meshes.values()) {
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+    }
+  };
   return {
     group,
-    build(plan) {
-      for (const mesh of meshes.values()) mesh.count = 0;
-      for (const d of plan) {
-        const mesh = meshes.get(d.kind);
-        if (!mesh) throw new Error(`no decor mesh for ${d.kind}`);
-        if (mesh.count >= CAPACITY) throw new Error(`${mesh.name}: plan exceeds ${CAPACITY}`);
-        mesh.setMatrixAt(mesh.count++, decorMatrix(d, m));
-      }
-      for (const mesh of meshes.values()) {
-        mesh.instanceMatrix.needsUpdate = true;
-        mesh.computeBoundingSphere();
-      }
+    build,
+    update() {
+      if (layoutChanged()) build(current);
     },
   };
 }
