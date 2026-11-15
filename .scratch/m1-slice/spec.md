@@ -178,4 +178,5 @@ Tickets live in [`issues/`](issues/). There are two phases: a **greybox spine** 
 | 14  | [Gold pickups and the chest-open moment](issues/14-pickup-look.md)                   | 06, 07     | M    |
 | 15  | [Death, respawn and FX feel](issues/15-death-and-fx.md)                              | 08, 10, 11 | M    |
 | 16  | [Decor (cuttable)](issues/16-decor.md)                                               | 09         | S    |
+| 18  | [Moss and vines you can see](issues/18-moss-and-vines.md) (subtask of 16)            | 16         | S    |
 | 17  | [Acceptance](issues/17-acceptance.md)                                                | all        | S    |
