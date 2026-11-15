@@ -59,13 +59,9 @@ export interface Gltf {
   getNode(name: string): GltfNode;
 }
 
-/**
- * Load public/models/<name>.glb as a kit of named nodes, for instancing. The parse is
- * cached per name, and every caller shares the same geometries and materials, so don't
- * dispose them per level.
- */
-export async function loadGltf(name: string): Promise<Gltf> {
-  const root = (await parse(name)).scene;
+/** A parsed glTF as a kit of named nodes (`loadGltf` without the fetch). */
+export function gltfNodes(gltf: GLTF, name = 'model'): Gltf {
+  const root = gltf.scene;
   return {
     getNode(node) {
       const found = root.getObjectByName(node);
@@ -81,4 +77,13 @@ export async function loadGltf(name: string): Promise<Gltf> {
       return { geometry: mesh.geometry, material: mesh.material as Material };
     },
   };
+}
+
+/**
+ * Load public/models/<name>.glb as a kit of named nodes, for instancing. The parse is
+ * cached per name, and every caller shares the same geometries and materials, so don't
+ * dispose them per level.
+ */
+export async function loadGltf(name: string): Promise<Gltf> {
+  return gltfNodes(await parse(name), name);
 }
