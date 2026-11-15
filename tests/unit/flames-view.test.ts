@@ -153,6 +153,38 @@ describe('flames view (preset D)', () => {
     for (const p of rig.pools) expect(p.intensity).toBe(0);
   });
 
+  it('a level without flames still holds every flame program, for the boot precompile', () => {
+    // The program a material compiles to: its type, plus its source or its node's name.
+    const programs = (root: Object3D) => {
+      const keys = new Set<string>();
+      root.traverse((o) => {
+        const m = (o as Mesh).material as (ShaderMaterial & Std) | undefined;
+        if (m) keys.add(`${m.type}:${m.fragmentShader ?? m.name}`);
+      });
+      return keys;
+    };
+    const full = createFlamesView(fakeKit());
+    full.build(FLAMES);
+    const empty = createFlamesView(fakeKit());
+    empty.build([]);
+    expect([...programs(empty.group)]).toEqual(expect.arrayContaining([...programs(full.group)]));
+  });
+
+  it('level parts are frustum-culled; the warm prototype hides itself once drawn', () => {
+    const view = createFlamesView(fakeKit());
+    view.build(FLAMES);
+    for (const name of ['bed', 'grate', 'nozzle', 'glow', 'column']) {
+      expect(part(view.group, 0, name).frustumCulled, name).toBe(true);
+    }
+    const proto = named(view.group, 'flame_prototype');
+    expect(proto.visible).toBe(true);
+    proto.traverse((o) => {
+      if ((o as Mesh).isMesh)
+        o.onAfterRender(...([] as unknown as Parameters<Mesh['onAfterRender']>));
+    });
+    expect(proto.visible).toBe(false);
+  });
+
   it('teardown drops the level’s flames', () => {
     const view = createFlamesView(fakeKit());
     view.build(FLAMES);

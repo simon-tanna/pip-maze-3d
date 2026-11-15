@@ -149,7 +149,22 @@ describe('blades view (steel blade GLB)', () => {
     expect(head2.material).toBe(head.material);
     expect(head2.geometry).toBe(head.geometry);
     view.teardown();
-    expect(view.group.children).toHaveLength(0);
+    expect(view.group.getObjectByName('blade_0')).toBeUndefined();
+    expect(view.group.children.map((c) => c.name)).toEqual(['blade_prototype']);
+  });
+
+  it('a level without blades still holds every blade material, for the boot precompile', () => {
+    const materials = (root: Object3D) => {
+      const all = new Set<unknown>();
+      root.traverse((o) => (o as Mesh).isMesh && all.add((o as Mesh).material));
+      return all;
+    };
+    const full = createBladesView(kit);
+    full.build(BLADES);
+    const empty = createBladesView(kit);
+    empty.build([]);
+    expect([...materials(empty.group)]).toEqual(expect.arrayContaining([...materials(full.group)]));
+    expect(named(full.group, 'blade_0').getObjectByName('head')?.frustumCulled).toBe(true);
   });
 });
 

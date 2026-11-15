@@ -11,7 +11,9 @@
  * about its local z, as `bladeSegments` does; the haft is pivot-local, and the head sits
  * at the arm's end, head-local.
  *
- * Geometry and materials are the GLB's, shared across levels and never disposed. The
+ * Geometry and materials are the GLB's, shared across levels and never disposed; a
+ * one-time warm prototype (`warm.ts`) holds them from view creation, so the boot precompile
+ * sees the steel even when the first level has no blades. The
  * baked roughness and the steel's reflections follow `look.blade` on every `update`.
  * No lights.
  */
@@ -23,6 +25,7 @@ import type { GridTile } from '@core/generator';
 import { tileToWorld } from '@core/grid';
 import type { BladeNode } from './blade-kit';
 import { look } from './look';
+import { warmOnce } from './warm';
 
 const DEG = Math.PI / 180;
 const { arm, pivotHeight } = BLADE_SHAPE;
@@ -92,6 +95,12 @@ export function createBladesView(kit: Gltf, environment: Texture | null = null):
 
   const group = new Group();
   group.name = 'blades';
+  // Every blade program and geometry, whatever the first level holds (`warm.ts`).
+  const prototype = createBlade({ col: 0, row: 0 }, 0).root;
+  prototype.name = 'blade_prototype';
+  warmOnce(prototype);
+  group.add(prototype);
+  let roots: Group[] = [];
   let pivots: Group[] = [];
   return {
     group,
@@ -99,14 +108,16 @@ export function createBladesView(kit: Gltf, environment: Texture | null = null):
       this.teardown();
       const made = blades.map((b, i) => createBlade(b.tile, i));
       pivots = made.map((m) => m.pivot);
-      group.add(...made.map((m) => m.root));
+      roots = made.map((m) => m.root);
+      if (roots.length > 0) group.add(...roots);
     },
     update(blades) {
       syncMaterials();
       pivots.forEach((p, i) => (p.rotation.z = (blades[i]?.angle ?? 0) * DEG));
     },
     teardown() {
-      group.clear();
+      for (const r of roots) group.remove(r);
+      roots = [];
       pivots = [];
     },
   };

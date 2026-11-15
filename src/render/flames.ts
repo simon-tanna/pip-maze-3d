@@ -19,8 +19,10 @@
  * slab on every tile that is lethal right now, shown while `showTruth` is set.
  *
  * Nothing is ever hidden or shown except the truth slabs: a quiet column or dark glow
- * collapses to zero scale instead (drawn, but no fragments), so the boot `compileAsync`
- * sees every program and none compiles in play.
+ * collapses to zero scale instead. A one-time warm prototype (`warm.ts`) holds every
+ * flame program and geometry from view creation, so the boot `compileAsync` sees them
+ * even when the first level has no flames, and none compiles or uploads in play; the
+ * level's own parts are frustum-culled.
  * Per-flame materials (bed, column, glow) come from pools that only grow and are never
  * disposed; copies share their program. No lights are created here.
  */
@@ -51,6 +53,7 @@ import { flameVisual } from './flame-visual';
 import type { FlameVisual } from './flame-visual';
 import { look } from './look';
 import { color } from './palette';
+import { warmOnce } from './warm';
 
 /** The grate and nozzle model (`blender/scripts/build_flame.py`). */
 export const FLAME_MODEL = 'hazards/flame';
@@ -357,41 +360,58 @@ export function createFlamesView(kit: Gltf, opts: FlamesViewOptions = {}): Flame
     emberGeometry.getAttribute('aLife').needsUpdate = true;
   };
 
-  group.add(emberPoints);
+  const makeFlame = (
+    name: string,
+    world: WorldXZ,
+    m: { bed: MeshStandardMaterial; column: ShaderMaterial; glow: ShaderMaterial },
+  ): FlameParts => {
+    const root = new Group();
+    root.name = name;
+    root.position.set(world.x, 0, world.z);
+    const bedMesh = new Mesh(bedNode.geometry, m.bed);
+    bedMesh.name = 'bed';
+    bedMesh.receiveShadow = true;
+    const grateMesh = new Mesh(grate.geometry, grate.material);
+    grateMesh.name = 'grate';
+    grateMesh.castShadow = grateMesh.receiveShadow = true;
+    const nozzleMesh = new Mesh(nozzle.geometry, nozzle.material);
+    nozzleMesh.name = 'nozzle';
+    nozzleMesh.receiveShadow = true;
+    const column = new Mesh(COLUMN, m.column);
+    column.name = 'column';
+    column.renderOrder = 2;
+    const glow = new Mesh(GLOW, m.glow);
+    glow.name = 'glow';
+    glow.renderOrder = 1;
+    root.add(bedMesh, grateMesh, nozzleMesh, glow, column);
+    return { root, bed: m.bed, column, glow, world };
+  };
+
+  // Every flame program and geometry, whatever the first level holds (`warm.ts`).
+  const prototype = makeFlame(
+    'flame_prototype',
+    { x: 0, z: 0 },
+    {
+      bed: (bedNode.material as MeshStandardMaterial).clone(),
+      column: newColumnMaterial(),
+      glow: newGlowMaterial(),
+    },
+  ).root;
+  warmOnce(prototype);
+  group.add(emberPoints, prototype);
 
   return {
     group,
     showTruth: false,
     build(flames) {
       this.teardown();
-      parts = flames.map((f, i) => {
-        const world = tileToWorld(f.tile.col, f.tile.row);
-        const root = new Group();
-        root.name = `flame_${i}`;
-        root.position.set(world.x, 0, world.z);
-        const bed = bedMaterial(i);
-        const bedMesh = new Mesh(bedNode.geometry, bed);
-        bedMesh.name = 'bed';
-        bedMesh.receiveShadow = true;
-        const grateMesh = new Mesh(grate.geometry, grate.material);
-        grateMesh.name = 'grate';
-        grateMesh.castShadow = grateMesh.receiveShadow = true;
-        const nozzleMesh = new Mesh(nozzle.geometry, nozzle.material);
-        nozzleMesh.name = 'nozzle';
-        nozzleMesh.receiveShadow = true;
-        const column = new Mesh(COLUMN, columnMaterial(i));
-        column.name = 'column';
-        column.renderOrder = 2;
-        const glow = new Mesh(GLOW, glowMaterial(i));
-        glow.name = 'glow';
-        glow.renderOrder = 1;
-        // Never culled: every flame draws from the level's first frame (quiet parts at zero
-        // scale cost nothing), so its render-target program variants and geometry uploads
-        // happen while the iris is shut, not when the flame first comes into view.
-        for (const m of [bedMesh, grateMesh, nozzleMesh, glow, column]) m.frustumCulled = false;
-        root.add(bedMesh, grateMesh, nozzleMesh, glow, column);
-        return { root, bed, column, glow, world };
-      });
+      parts = flames.map((f, i) =>
+        makeFlame(`flame_${i}`, tileToWorld(f.tile.col, f.tile.row), {
+          bed: bedMaterial(i),
+          column: columnMaterial(i),
+          glow: glowMaterial(i),
+        }),
+      );
       slabs = truth
         ? flames.map((f, i) => {
             const m = new Mesh(TRUTH_SLAB, TRUTH);
