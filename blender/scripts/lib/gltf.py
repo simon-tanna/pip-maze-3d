@@ -31,8 +31,9 @@ def export_glb(
     `profile="skinned"` is for a rigged character (docs: m1 ticket 10). It checks the
     contract first and raises ExportContractError on: not exactly one armature, a hidden
     armature, an armature with no animation data, an action without a fake user, action
-    names other than exactly `clips`, or a material not named after a palette colour. It
-    then rewrites each material's Base Color from palette.json and exports every action as
+    names other than exactly `clips`, an exported mesh with no material slot, or an exported
+    material slot (on any visible non-"_" object) that is empty or not named after a palette
+    colour. It then rewrites each exported material's Base Color from palette.json and exports every action as
     a clip (ACTIONS mode, slid to t = 0) with deform bones only and 4 influences per vertex.
     """
     if profile not in ("static", "skinned"):
@@ -45,8 +46,7 @@ def export_glb(
 
     skinned: dict = {}
     if profile == "skinned":
-        _check_character(clips)
-        _apply_palette()
+        _apply_palette(_check_character(clips))
         skinned = dict(
             export_animation_mode="ACTIONS",
             export_anim_single_armature=True,  # every action with bone keys → one clip each
@@ -85,7 +85,13 @@ def _fail(message: str) -> None:
     raise ExportContractError(f"[export] character contract: {message}")
 
 
-def _check_character(clips: tuple[str, ...]) -> None:
+def _exported_objects() -> list:
+    """What use_visible exports: the visible objects (export_glb hides every "_" helper)."""
+    return [o for o in bpy.data.objects if not o.name.startswith("_") and o.visible_get()]
+
+
+def _check_character(clips: tuple[str, ...]) -> set:
+    """Raise on a contract break; return the materials the export will carry."""
     armatures = [o for o in bpy.data.objects if o.type == "ARMATURE" and not o.name.startswith("_")]
     if len(armatures) != 1:
         _fail(f"expected exactly one armature, found {len(armatures)}")
@@ -104,19 +110,22 @@ def _check_character(clips: tuple[str, ...]) -> None:
         _fail(f"clips must be exactly {sorted(clips)}, found {found}")
 
     palette = set(names())
-    for obj in bpy.data.objects:
-        if obj.type != "MESH" or obj.name.startswith("_"):
-            continue
+    exported = set()
+    for obj in _exported_objects():
+        if obj.type == "MESH" and not obj.material_slots:
+            _fail(f"{obj.name}: mesh has no material slot, so no palette colour")
         for slot in obj.material_slots:
             if slot.material is None or slot.material.name not in palette:
                 name = slot.material.name if slot.material else None
                 _fail(f"{obj.name}: material slot {name!r} is not a palette colour")
+            exported.add(slot.material)
+    return exported
 
 
-def _apply_palette() -> None:
-    """Every slot's Base Color comes from palette.json: the slot name is the colour."""
-    for mat in bpy.data.materials:
-        if mat.users == 0 or mat.node_tree is None:
+def _apply_palette(materials: set) -> None:
+    """Every exported slot's Base Color comes from palette.json: the slot name is the colour."""
+    for mat in materials:
+        if mat.node_tree is None:
             continue
         for node in mat.node_tree.nodes:
             if node.type == "BSDF_PRINCIPLED":

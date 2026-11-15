@@ -53,6 +53,40 @@ def off_palette_material(arm, mesh):
     mesh.material_slots[0].material = bpy.data.materials.new("Material.001")
 
 
+def _mesh_object(name, material=None):
+    obj = bpy.data.objects.new(name, bpy.data.meshes.new(name))
+    bpy.context.scene.collection.objects.link(obj)
+    if material is not None:
+        obj.data.materials.append(material)
+    return obj
+
+
+def _off_palette(name):
+    return bpy.data.materials.new(name)  # node tree with a Principled BSDF by default
+
+
+def off_palette_curve(arm, mesh):
+    curve = bpy.data.objects.new("rope", bpy.data.curves.new("rope", "CURVE"))
+    curve.data.materials.append(_off_palette("Material.002"))
+    bpy.context.scene.collection.objects.link(curve)
+
+
+def slotless_mesh(arm, mesh):
+    _mesh_object("bare")
+
+
+def empty_slot(arm, mesh):
+    mesh.data.materials.append(None)
+
+
+def helper_off_palette(arm, mesh):
+    _mesh_object("_cutter", _off_palette("Material.003"))
+
+
+def orphan_off_palette(arm, mesh):
+    _off_palette("Material.004").use_fake_user = True
+
+
 BROKEN = [
     second_armature,
     hidden_rig,
@@ -62,7 +96,13 @@ BROKEN = [
     missing_clip,
     renamed_clip,
     off_palette_material,
+    off_palette_curve,
+    slotless_mesh,
+    empty_slot,
 ]
+
+# Off-palette materials that nothing exported uses: the export must ignore them.
+UNEXPORTED = [helper_off_palette, orphan_off_palette]
 
 
 def main() -> None:
@@ -80,7 +120,21 @@ def main() -> None:
                 else:
                     print(f"[ok] {breaker.__name__}: {err}")
                 continue
+            except Exception as err:  # noqa: BLE001 - any other error is a contract hole
+                failures.append(f"{breaker.__name__}: raised {type(err).__name__}: {err}")
+                continue
             failures.append(f"{breaker.__name__}: exported without complaint")
+
+        for case in UNEXPORTED:
+            out = Path(tmp) / f"{case.__name__}.glb"
+            build_result = build()
+            case(*build_result)
+            try:
+                export_glb(out, profile="skinned")
+            except Exception as err:  # noqa: BLE001
+                failures.append(f"{case.__name__}: raised {type(err).__name__}: {err}")
+                continue
+            print(f"[ok] {case.__name__}: exports")
 
         out = Path(tmp) / "pip.glb"
         build()
@@ -94,7 +148,7 @@ def main() -> None:
         print(f"[FAIL] {f}")
     if failures:
         sys.exit(1)
-    print(f"[test] {len(BROKEN) + 1} cases passed")
+    print(f"[test] {len(BROKEN) + len(UNEXPORTED) + 1} cases passed")
 
 
 if __name__ == "__main__":
