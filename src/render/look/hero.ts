@@ -18,6 +18,8 @@ export const hero = section(
     blobRadius: 0.45,
     /** Blob shadow opacity at its centre. */
     blobOpacity: 0.55,
+    /** Blob falloff exponent on (1 − r): higher tightens it around the feet. */
+    blobFalloff: 1.5,
   },
   {
     turnMs: [0, 300, 5],
@@ -27,5 +29,6 @@ export const hero = section(
     rimPower: [0.5, 8, 0.1],
     blobRadius: [0.1, 1, 0.01],
     blobOpacity: [0, 1, 0.01],
+    blobFalloff: [0.5, 4, 0.1],
   },
 );

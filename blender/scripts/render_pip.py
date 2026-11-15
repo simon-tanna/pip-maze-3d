@@ -8,7 +8,8 @@ transform (the game's NeutralToneMapping):
   * <prefix>-game: the full 1920x1080 frame from the in-game camera (look.camera: 7 m
     back, 15.7 m up, 57 deg vertical fov, so about a 66 deg pitch) over a FLOOR plane,
     lit like the chamber: a SAND key from the north-west at 57.5 deg, an AMBIENT /
-    FLOOR_DARK hemisphere, and the FIRE_HOT torch 1.6 m up, 0.5 m south of Pip;
+    FLOOR_DARK hemisphere, and the FIRE_HOT torch 1.6 m up, 0.9 m south of Pip
+    (look.lights.torchLeadSouth);
   * <prefix>-game-zoom: Pip's pixels from that frame, cropped and enlarged 4x (nearest),
     so the face can be judged at game scale.
 

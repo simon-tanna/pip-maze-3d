@@ -21,6 +21,8 @@ import {
   AnimationMixer,
   DataTexture,
   Group,
+  LinearFilter,
+  LinearMipmapLinearFilter,
   Mesh,
   MeshBasicMaterial,
   PlaneGeometry,
@@ -136,20 +138,33 @@ export function addRim(material: MeshStandardMaterial, rim: RimUniforms): void {
   material.customProgramCacheKey = () => 'hero-rim';
 }
 
-/** A soft radial falloff (alpha in the green channel, which `alphaMap` reads). */
-function blobTexture(size = 64): DataTexture {
+/**
+ * A soft radial falloff, `(1 − r)^falloff` (alpha in the green channel, which `alphaMap`
+ * reads), linearly filtered and mipmapped so the gradient never stair-steps. `paint`
+ * rewrites it in place when `look.hero.blobFalloff` changes.
+ */
+function blobTexture(size = 64) {
   const data = new Uint8Array(size * size * 4);
+  const texture = new DataTexture(data, size, size);
+  texture.magFilter = LinearFilter;
+  texture.minFilter = LinearMipmapLinearFilter;
+  texture.generateMipmaps = true; // 64² is a power of two
   const c = (size - 1) / 2;
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const r = Math.hypot(x - c, y - c) / c;
-      const a = Math.round(255 * Math.max(0, 1 - r) ** 1.5);
-      data.set([a, a, a, 255], (y * size + x) * 4);
+  let painted: number | null = null;
+  const paint = (falloff: number) => {
+    if (falloff === painted) return;
+    painted = falloff;
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const r = Math.hypot(x - c, y - c) / c;
+        const a = Math.round(255 * Math.max(0, 1 - r) ** falloff);
+        data.set([a, a, a, 255], (y * size + x) * 4);
+      }
     }
-  }
-  const tex = new DataTexture(data, size, size);
-  tex.needsUpdate = true;
-  return tex;
+    texture.needsUpdate = true;
+  };
+  paint(look.hero.blobFalloff);
+  return { texture, paint };
 }
 
 export function createHeroView(character: Character): HeroView {
@@ -175,11 +190,12 @@ export function createHeroView(character: Character): HeroView {
     materials.push(own);
   });
 
+  const blobAlpha = blobTexture();
   const blob = new Mesh(
     new PlaneGeometry(1, 1),
     new MeshBasicMaterial({
       color: color('INK'),
-      alphaMap: blobTexture(),
+      alphaMap: blobAlpha.texture,
       transparent: true,
       depthWrite: false,
       opacity: look.hero.blobOpacity,
@@ -228,6 +244,7 @@ export function createHeroView(character: Character): HeroView {
       rim.rimPower.value = h.rimPower;
       blob.scale.setScalar(2 * h.blobRadius);
       blob.material.opacity = h.blobOpacity;
+      blobAlpha.paint(h.blobFalloff);
 
       object.position.set(position.x, 0, position.z);
       if (target === null) {

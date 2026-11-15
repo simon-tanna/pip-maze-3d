@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { ShaderLib } from 'three';
-import type { Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D } from 'three';
+import { LinearFilter, LinearMipmapLinearFilter, ShaderLib } from 'three';
+import type { DataTexture, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D } from 'three';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { instantiateCharacter } from '@assets/models';
 import { createBladesView } from '@render/blades';
@@ -82,6 +82,42 @@ describe('view materials follow look', () => {
     expect(blobMat.opacity).toBe(0.4);
     expect(blob.scale.x).toBeCloseTo(1.2, 9);
     expect(blob.castShadow).toBe(false);
+  });
+
+  it('hero: the blob falls off smoothly, with the exponent from look', () => {
+    const hero = createHeroView(instantiateCharacter(pipGltf));
+    const frame = {
+      position: { x: 0, z: 0 },
+      facing: 'south' as const,
+      timeMs: 0,
+      moving: false,
+      fallen: false,
+    };
+    const alphaMap = () =>
+      ((named(hero.object, 'blob') as Mesh).material as MeshBasicMaterial).alphaMap as DataTexture;
+    /** Alpha (green) halfway from the centre to the edge, along the middle row, 0–1. */
+    const halfway = () => {
+      const { data, width } = alphaMap().image as { data: Uint8Array; width: number };
+      const row = Math.floor(width / 2);
+      const c = (width - 1) / 2;
+      const x = Math.round(c + c / 2);
+      const r = Math.hypot(x - c, row - c) / c;
+      return { alpha: (data[(row * width + x) * 4 + 1] ?? 0) / 255, r };
+    };
+
+    look.hero.blobFalloff = 2;
+    hero.update(frame);
+    const tex = alphaMap();
+    expect(tex.magFilter).toBe(LinearFilter);
+    expect(tex.minFilter).toBe(LinearMipmapLinearFilter);
+    expect(tex.generateMipmaps).toBe(true);
+    let { alpha, r } = halfway();
+    expect(alpha).toBeCloseTo((1 - r) ** 2, 2);
+
+    look.hero.blobFalloff = 1;
+    hero.update(frame);
+    ({ alpha, r } = halfway());
+    expect(alpha).toBeCloseTo(1 - r, 2);
   });
 
   it('blades: lintel stone roughness and steel metalness', () => {
