@@ -76,11 +76,6 @@ def export_glb(
     print(f"[export] {out_path}")
 
 
-def has_armature() -> bool:
-    """True when the scene holds an exportable armature (export_all picks the profile)."""
-    return any(o.type == "ARMATURE" and not o.name.startswith("_") for o in bpy.data.objects)
-
-
 def _fail(message: str) -> None:
     raise ExportContractError(f"[export] character contract: {message}")
 
