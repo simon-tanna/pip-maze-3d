@@ -8,6 +8,7 @@ import { bench } from './bench';
 import { blade } from './blade';
 import { camera } from './camera';
 import { chamber } from './chamber';
+import { decor } from './decor';
 import { flame } from './flame';
 import { hero } from './hero';
 import { hud } from './hud';
@@ -26,6 +27,7 @@ export const look = {
   lights,
   camera,
   chamber,
+  decor,
   hero,
   flame,
   blade,
