@@ -18,8 +18,9 @@
  * `truth` adds the dev-only ground-truth overlay (the hazards prototype's `G`): a `BLOOD`
  * slab on every tile that is lethal right now, shown while `showTruth` is set.
  *
- * Nothing is ever hidden or shown except the truth slabs: a quiet flame draws at strength
- * 0 instead, so the boot `compileAsync` sees every program and none compiles in play.
+ * Nothing is ever hidden or shown except the truth slabs: a quiet column or dark glow
+ * collapses to zero scale instead (drawn, but no fragments), so the boot `compileAsync`
+ * sees every program and none compiles in play.
  * Per-flame materials (bed, column, glow) come from pools that only grow and are never
  * disposed; copies share their program. No lights are created here.
  */
@@ -199,6 +200,8 @@ const EMBER_RADIUS = 0.5;
 const EMBER_SPREAD = 0.35;
 /** Render-local RNG seed for embers (not level-visible state, but replayable). */
 const EMBER_SEED = 0x0f1a;
+/** Below this the glow shader discards every fragment. */
+const GLOW_FLOOR = 0.002;
 /** Longest frame step the view simulates, ms (a paused sim's `advance` jumps further). */
 const MAX_FRAME_MS = 100;
 
@@ -377,6 +380,10 @@ export function createFlamesView(kit: Gltf, opts: FlamesViewOptions = {}): Flame
         const glow = new Mesh(GLOW, glowMaterial(i));
         glow.name = 'glow';
         glow.renderOrder = 1;
+        // Never culled: every flame draws from the level's first frame (quiet parts at zero
+        // scale cost nothing), so its render-target program variants and geometry uploads
+        // happen while the iris is shut, not when the flame first comes into view.
+        for (const m of [bedMesh, grateMesh, nozzleMesh, glow, column]) m.frustumCulled = false;
         root.add(bedMesh, grateMesh, nozzleMesh, glow, column);
         return { root, bed, column, glow, world };
       });
@@ -411,25 +418,25 @@ export function createFlamesView(kit: Gltf, opts: FlamesViewOptions = {}): Flame
         p.bed.emissive.copy(EMBER_DARK).lerp(FIRE_HOT, v.heat);
         p.bed.emissiveIntensity = v.heat * (on ? f.bedLive * flick : f.bedTelegraph);
 
-        const width = 0.6 + 0.4 * v.size;
-        p.column.scale.set(width, f.height * v.size, width);
+        // A quiet column collapses to a point: still drawn (so compiled), but no fragments.
+        const width = v.alpha > 0 ? 0.6 + 0.4 * v.size : 0;
+        p.column.scale.set(width, v.alpha > 0 ? f.height * v.size : 0, width);
         const column = p.column.material;
         set(column, 'uTime', t);
         set(column, 'uScroll', f.scroll);
         set(column, 'uAlpha', v.alpha);
         set(column, 'uGain', f.gain);
 
-        p.glow.scale.set(f.glowSize, 1, f.glowSize);
         const glow = p.glow.material;
         if (on) tint(glow, 'uColor').copy(FIRE);
         else tint(glow, 'uColor').copy(EMBER).lerp(FIRE_HOT, v.heat);
-        set(
-          glow,
-          'uIntensity',
-          on
-            ? f.glowLive * flick
-            : v.heat * (now.state === 'telegraph' ? f.glowTelegraph : f.glowCool),
-        );
+        const intensity = on
+          ? f.glowLive * flick
+          : v.heat * (now.state === 'telegraph' ? f.glowTelegraph : f.glowCool);
+        set(glow, 'uIntensity', intensity);
+        // A dark decal collapses to a point, like a quiet column.
+        const size = intensity > GLOW_FLOOR ? f.glowSize : 0;
+        p.glow.scale.set(size, 1, size);
         return v;
       });
 
