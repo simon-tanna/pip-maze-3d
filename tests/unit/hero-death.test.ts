@@ -147,6 +147,25 @@ describe('hero view: the death sequence follows the simulation timers', () => {
     expect(hero.fx().rim).toBeCloseTo(look.hero.rimStrength, 9);
   });
 
+  it('the blob shadow shrinks with the collapse, and grows back with the pop', () => {
+    const hero = pip();
+    const blob = () => {
+      const b = hero.object.getObjectByName('blob');
+      if (!b) throw new Error('no blob');
+      return b.scale;
+    };
+    const full = 2 * look.hero.blobRadius;
+    const { gone } = DEATH_TIMING;
+    for (const t of [0, gone - look.hero.collapseMs / 2, gone - 1, gone + look.hero.popMs / 3]) {
+      hero.update(after(t));
+      const s = hero.fx().scale.x;
+      expect(blob().x, `t = ${t}`).toBeCloseTo(full * s, 9);
+      expect(blob().y, `t = ${t}`).toBeCloseTo(full * s, 9);
+    }
+    hero.update(after(gone - 1));
+    expect(blob().x).toBeLessThan(full * 0.5); // nearly gone just before `gone`
+  });
+
   it('no death yet: nothing plays', () => {
     const hero = pip();
     hero.update(after(0, { diedAtMs: null, fallen: false }));

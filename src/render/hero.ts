@@ -332,7 +332,7 @@ export function createHeroView(character: Character, opts: HeroViewOptions = {})
       rim.rimStrength.value = pose.rim;
       rim.rimPower.value = h.rimPower;
       rim.hitFlash.value = pose.flash;
-      blob.scale.setScalar(2 * h.blobRadius);
+      blob.scale.setScalar(2 * h.blobRadius * pose.scale.x); // the footprint follows the pose
       blob.material.opacity = h.blobOpacity;
       blobAlpha.paint(h.blobFalloff);
       pip.scale.set(pose.scale.x, pose.scale.y, pose.scale.x);
