@@ -224,8 +224,8 @@ async function boot(shell: Shell): Promise<void> {
   const devFrame: (() => void)[] = [];
   /** Bring every view and the camera to `alpha`, without drawing. */
   const sync = (alpha: number) => {
-    const timeMs = sim.timeAt(alpha);
     const h = heroFrame(sim, alpha);
+    const { timeMs } = h;
     hero.update(h);
     cameraRig.update(h.position, h.facing, timeMs);
     scene.environmentIntensity = look.lights.envIntensity;
