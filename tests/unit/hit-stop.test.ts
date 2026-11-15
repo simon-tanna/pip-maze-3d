@@ -55,6 +55,19 @@ describe('hit-stop (spec: Simulation → Hit-stop)', () => {
     expect(after.skippedTicks).toBe(4);
   });
 
+  it('view time holds through the stop: alpha is ignored while frozen', () => {
+    const sim = setup();
+    const at = pickUpKey(sim);
+    for (let i = 0; i < 4; i++) {
+      expect(sim.timeAt(0.9)).toBe(at.simMs);
+      expect(sim.levelAt(0.9)).toBe(at.levelMs);
+      sim.update();
+    }
+    // The stop is over: the next tick is live, so alpha interpolates toward it again.
+    expect(sim.timeAt(0.5)).toBeCloseTo(at.simMs + 0.5 * TICK_MS, 9);
+    expect(sim.levelAt(0.5)).toBeCloseTo(at.levelMs + 0.5 * TICK_MS, 9);
+  });
+
   it('input and the flames freeze with it', () => {
     const sim = setup();
     pickUpKey(sim);

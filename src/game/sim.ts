@@ -160,7 +160,7 @@ export interface Sim {
   /** Dev/e2e switch: hazards ignore the hero (read by ticket 07's hazard checks). */
   ignoreHazards: boolean;
   snapshot(): SimSnapshot;
-  /** Simulation time at `alpha` of the way to the next tick, ms (what render draws). */
+  /** Simulation time at `alpha` of the way to the next tick, ms (what render draws); alpha is ignored in a hit-stop. */
   timeAt(alpha: number): number;
   /** The level's hazard clock at `alpha` (`levelMs`, which stops when `leaving` begins). */
   levelAt(alpha: number): number;
@@ -465,10 +465,11 @@ export function createSim({
       };
     },
     timeAt(alpha) {
-      return now() + alpha * TICK_MS;
+      // In a hit-stop the next tick is skipped, so there is nothing to interpolate toward.
+      return now() + (frozen > 0 ? 0 : alpha * TICK_MS);
     },
     levelAt(alpha) {
-      const running = levelStartMs !== null && levelEndMs === null;
+      const running = levelStartMs !== null && levelEndMs === null && frozen === 0;
       return levelMs() + (running ? alpha * TICK_MS : 0);
     },
     heroPosition(alpha) {
