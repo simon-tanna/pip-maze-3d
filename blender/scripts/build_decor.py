@@ -2,10 +2,12 @@
 
 One scene, one GLB (public/models/decor.glb) with the nodes of the contract in
 src/render/decor.ts (checked by tests/unit/decor-glb.test.ts): `decor_bones`,
-`decor_rubble`, `decor_pot` and `decor_moss`. Slice ticket 16: v2's four decor kinds
-(hazard-art.js `DECOR_KINDS`), purely visual. Each node is one mesh with one flat
+`decor_rubble`, `decor_pot`, `decor_moss` and `decor_vine`. Slice ticket 16: v2's four
+decor kinds (hazard-art.js `DECOR_KINDS`); ticket 18 made the moss big and bright enough
+to see and added the vines (not in v2). Purely visual. Each node is one mesh with one flat
 Principled material whose colour inputs come from the palette (BONE, STONE_SIDE, STONE,
-MOSS); no lights, no textures.
+and MOSS_LIGHT for moss and vines, which MOSS was too dark for against the shadowed south
+faces); no lights, no textures.
 
 Frames (three.js, after export_yup maps Blender (x, y, z) to three (x, z, -y)):
   * bones, rubble, pot: centred on their pivot in x/z, base on y = 0, inside
@@ -13,6 +15,9 @@ Frames (three.js, after export_yup maps Blender (x, y, z) to three (x, z, -y)):
   * moss: a patch that grows on a south-facing wall. Its origin is the wall foot; it rises
     in the x/y plane just south of z = 0, MOSS_WIDTH wide and at most MOSS_HEIGHT tall,
     with a short fringe onto the floor, reaching at most MOSS_REACH south.
+  * vine: strands that hang from a south-facing wall's cap edge. Its origin is the top of
+    that edge; it hangs down to at most VINE_LENGTH below it, VINE_WIDTH wide, between
+    z = 0 and VINE_REACH, and in front of the cap lip (LIP_REACH) beside it.
 
 Builds are deterministic: the irregular shapes come from a seeded `random.Random`.
 
@@ -36,10 +41,14 @@ from lib.paths import MODELS_DIR  # noqa: E402
 
 OUT = MODELS_DIR / "decor.glb"
 
-PROP_RADIUS = 0.5  # mirrored in src/render/decor.ts
-MOSS_WIDTH = 1.2
-MOSS_HEIGHT = 0.8
+PROP_RADIUS = 0.5  # mirrored in src/render/decor.ts, as are the MOSS_* and VINE_* sizes
+MOSS_WIDTH = 1.6
+MOSS_HEIGHT = 1.3
 MOSS_REACH = 0.2  # how far south of the wall (z = 0) the patch and fringe reach
+VINE_LENGTH = 1.8  # most a vine hangs below the cap (the view scales it to look.decor)
+VINE_WIDTH = 1.1
+VINE_REACH = 0.16  # how far south of the wall the stems and leaves reach
+VINE_GAP = 0.07  # the stems' distance in front of the wall: past the cap lip's 5 cm
 POT_HEIGHT = 0.55
 SMOOTH_ANGLE = math.radians(40)
 
@@ -195,16 +204,21 @@ def build_pot(mat):
 
 
 def build_moss(mat, rng: random.Random):
-    """A ragged patch on the wall (Blender x/z, just in front of y = 0) with a floor fringe."""
+    """A ragged patch on the wall (Blender x/z, just in front of y = 0) with a floor fringe.
+
+    Ticket 18: it covers most of the face's lower half, tallest in the middle but still
+    well up the wall at its ends, so the steep chase camera sees a patch, not a mound."""
     bm = bmesh.new()
-    columns = 13
-    rows = 6
+    columns = 17
+    rows = 9
     half = MOSS_WIDTH / 2
     tops = []
     for i in range(columns):
         t = i / (columns - 1)
-        edge = math.sin(math.pi * t)  # tallest in the middle, nothing at the ends
-        tops.append(MOSS_HEIGHT * edge * rng.uniform(0.45, 1.0))
+        edge = math.sin(math.pi * t) ** 0.4  # full across the middle, ragged at the ends
+        tops.append((0.35 + 0.65 * edge) * rng.uniform(0.78, 1.0))
+    peak = max(tops)
+    tops = [MOSS_HEIGHT * 0.98 * top / peak for top in tops]
     grid = []
     for i in range(columns):
         x = -half + MOSS_WIDTH * i / (columns - 1)
@@ -213,7 +227,8 @@ def build_moss(mat, rng: random.Random):
         top = max(tops[i], base + 0.02)
         for j in range(rows):
             z = base + (top - base) * j / (rows - 1)
-            bulge = 0.012 + 0.025 * math.sin(math.pi * j / (rows - 1)) * (tops[i] / MOSS_HEIGHT)
+            clump = rng.uniform(0.6, 1.0)
+            bulge = 0.012 + 0.03 * clump * math.sin(math.pi * j / (rows - 1)) * (tops[i] / MOSS_HEIGHT)
             col.append(bm.verts.new((x, -bulge, z)))
         # The fringe: two rows creeping onto the floor, falling monotonically from the wall.
         fringe = 0.14 * (tops[i] / MOSS_HEIGHT)
@@ -235,13 +250,53 @@ def build_moss(mat, rng: random.Random):
     return obj
 
 
+def leaf(bm, x: float, y: float, z: float, side: int, size: float) -> None:
+    """A diamond leaf from the stem at Blender (x, y, z), pointing down and out to `side`
+    (±1 in x), its tip tipped south (−y) so it faces the camera and the light."""
+    w, h = 0.09 * size, 0.07 * size
+    tip = (x + side * 2 * w, y - 0.03 * size, z - 0.6 * h)
+    left = (x + side * w, y - 0.012, z + h)
+    right = (x + side * w, y - 0.012, z - 1.4 * h)
+    bm.faces.new([bm.verts.new(c) for c in ((x, y, z), right, tip, left)])
+
+
+def build_vine(mat, rng: random.Random):
+    """Strands hanging from a south wall's cap edge (Blender origin; three y = 0, z = 0),
+    down the face, held VINE_GAP in front of it (past the cap lip), with leaves."""
+    bm = bmesh.new()
+    strands = 5
+    usable = VINE_WIDTH / 2 - 0.3  # jitter, stem sway plus a leaf's reach stays inside the width
+    for s in range(strands):
+        x0 = -usable + 2 * usable * s / (strands - 1) + rng.uniform(-0.04, 0.04)
+        length = VINE_LENGTH * (0.94 if s == 2 else rng.uniform(0.55, 0.9))
+        steps = max(4, round(length / 0.06))
+        phase = rng.uniform(0, math.tau)
+        stem = []
+        for k in range(steps + 1):
+            z = 0.02 - (length + 0.02) * k / steps  # starts just over the cap top
+            x = x0 + 0.04 * math.sin(phase + 5 * k / steps)
+            y = -VINE_GAP - 0.03 * math.sin(math.pi * k / steps)  # bows out a little
+            stem.append((x, y, z))
+        for (xa, ya, za), (xb, yb, zb) in zip(stem, stem[1:]):
+            r = 0.013
+            bm.faces.new([bm.verts.new(c) for c in
+                          ((xa - r, ya, za), (xb - r, yb, zb), (xb + r, yb, zb), (xa + r, ya, za))])
+        for k, (x, y, z) in enumerate(stem[1:-1], start=1):
+            leaf(bm, x, y, z, 1 if k % 2 else -1, rng.uniform(0.8, 1.15))
+    for f in bm.faces:  # face south (Blender -y) and up
+        if f.normal.dot(Vector((0, -1, 0.3))) < 0:
+            f.normal_flip()
+    return new_object("decor_vine", bm, mat)
+
+
 def build_decor() -> None:
     reset_scene()
     rng = random.Random(16)
     build_bones(material("decor_bone", "BONE", 0.75)).location.x = 0
     build_rubble(material("decor_stone", "STONE_SIDE", 0.9), rng).location.x = 1.5
     build_pot(material("decor_clay", "STONE", 0.8)).location.x = 3
-    build_moss(material("decor_moss", "MOSS", 0.95), rng).location.x = 4.5
+    build_moss(material("decor_moss", "MOSS_LIGHT", 0.95), rng).location.x = 4.5
+    build_vine(material("decor_vine", "MOSS_LIGHT", 0.85), rng).location.x = 6
     export_glb(OUT)
 
 

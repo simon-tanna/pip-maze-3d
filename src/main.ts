@@ -3,7 +3,7 @@ import type { Camera, Light } from 'three';
 import type { WorldXZ } from '@core/grid';
 import { loadCharacter, loadGltf } from '@assets/models';
 import { planChamber } from '@core/chamber-plan';
-import { planDecor } from '@core/decor';
+import { planDecor, planVines } from '@core/decor';
 import { mazeBounds } from '@core/grid';
 import { resolveRun } from '@core/run-seed';
 import type { RunStart } from '@core/run-seed';
@@ -226,7 +226,10 @@ async function boot(shell: Shell): Promise<void> {
       rig.fitShadowTo(mazeBounds(cols, level.map.length)); // the map, not the padding
     },
   });
-  levels.add({ build: ({ level, seed }) => decor.build(planDecor(level, seed)) }); // counts only
+  levels.add({
+    build: ({ level, seed }) =>
+      decor.build([...planDecor(level, seed), ...planVines(level, seed, look.decor.vineChance)]),
+  }); // counts only
   levels.add({
     build: ({ level, seed }) => pickups.build(level, seed),
     teardown: () => pickups.teardown(),

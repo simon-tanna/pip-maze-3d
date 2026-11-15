@@ -16,8 +16,15 @@ import { startTile } from './level';
 export const DECOR_KINDS = ['bones', 'rubble', 'moss', 'pot'] as const;
 export type DecorKind = (typeof DECOR_KINDS)[number];
 
+/** Every prop the view instances: v2's kinds, then the vines (ticket 18, not a v2 port). */
+export const PROP_KINDS = [...DECOR_KINDS, 'vine'] as const;
+export type PropKind = (typeof PROP_KINDS)[number];
+
 /** v2's `DECOR_CHANCE`: the share of eligible tiles that get a prop. */
 export const DECOR_CHANCE = 0.12;
+
+/** The default share of wall-north floor tiles that get a vine (`look.decor.vineChance`). */
+export const VINE_CHANCE = 0.18;
 
 /** The wall a prop hugs. v2 only dresses tiles with a wall north, west or east. */
 export type DecorSide = 'n' | 'e' | 'w';
@@ -25,11 +32,11 @@ export type DecorSide = 'n' | 'e' | 'w';
 export interface DecorPlacement {
   col: number;
   row: number;
-  kind: DecorKind;
+  kind: PropKind;
   side: DecorSide;
   /** Where along the wall the prop sits, in [0, 1) (render maps it to an offset). */
   shift: number;
-  /** A yaw jitter in [0, 1) (render maps it to an angle). */
+  /** A jitter in [0, 1): a floor prop's yaw, a vine's length (render maps it). */
   turn: number;
 }
 
@@ -81,6 +88,29 @@ export function planDecor(level: Level, seed: number, chance = DECOR_CHANCE): De
       const kind = kinds[Math.floor(rng() * kinds.length)] ?? 'bones';
       const side: DecorSide = wallN ? 'n' : wallW ? 'w' : 'e';
       out.push({ col, row, kind, side, shift: rng(), turn: rng() });
+    }
+  }
+  return out;
+}
+
+/**
+ * Vines (ticket 18, not a v2 port) hanging from the cap of a wall to the north, over any
+ * plain floor tile, never on a tile in `avoidTiles`. Their rng is
+ * `tileRng(seed, col + 1500, row + 1500)`, a per-tile stream of their own, so they never
+ * touch v2's draws (or the generator's): a vine may share its tile with moss or any other
+ * prop, or have it to itself. Same level, seed and chance, same vines.
+ */
+export function planVines(level: Level, seed: number, chance = VINE_CHANCE): DecorPlacement[] {
+  const { map } = level;
+  const avoid = avoidTiles(level);
+  const out: DecorPlacement[] = [];
+  for (let row = 0; row < map.length; row++) {
+    const cells = map[row] ?? [];
+    for (let col = 0; col < cells.length; col++) {
+      if (cells[col] !== 0 || isOpen(map, col, row - 1) || avoid.has(tileKey(col, row))) continue;
+      const rng = tileRng(seed, col + 1500, row + 1500);
+      if (rng() >= chance) continue;
+      out.push({ col, row, kind: 'vine', side: 'n', shift: rng(), turn: rng() });
     }
   }
   return out;

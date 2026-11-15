@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DECOR_KINDS, planDecor } from '@core/decor';
+import { DECOR_KINDS, planDecor, planVines, VINE_CHANCE } from '@core/decor';
 import { criticalPath, generateLevel, SPAWN_SAFE_RADIUS, tilesWithin } from '@core/generator';
 import type { Level } from '@core/generator';
 import { tileKey } from '@core/grid';
@@ -10,6 +10,26 @@ import v2 from '../fixtures/decor-baseline.json';
 const SEEDS = Array.from({ length: 60 }, (_, n) => n * 7919 + 1);
 const key = (t: { col: number; row: number }) => tileKey(t.col, t.row);
 const wall = (level: Level, col: number, row: number) => (level.map[row]?.[col] ?? 1) === 1;
+
+/** Tiles no prop may use: the critical path, the spawn zone, pickups, the exit and hazards. */
+function bannedTiles(level: Level): Set<string> {
+  const start = startTile(level.map);
+  const exit = { col: level.exitCol, row: level.exitRow };
+  const banned = new Set([
+    ...criticalPath(level.map, start, level.key, level.key2, exit),
+    ...tilesWithin(level.map, start, SPAWN_SAFE_RADIUS),
+    ...level.coins.map(key),
+    key(level.key),
+    ...(level.key2 ? [key(level.key2)] : []),
+    key(exit),
+  ]);
+  for (const t of level.traps) {
+    if (t.type === 'mummy') {
+      for (let c = t.patrolCols[0]; c <= t.patrolCols[1]; c++) banned.add(tileKey(c, t.row));
+    } else banned.add(key(t));
+  }
+  return banned;
+}
 
 describe('planDecor', () => {
   it('matches v2 tile for tile and kind for kind, outside the spawn zone', () => {
@@ -35,21 +55,7 @@ describe('planDecor', () => {
     for (const index of [0, 1, 3]) {
       for (const seed of SEEDS) {
         const level = generateLevel(index, seed);
-        const start = startTile(level.map);
-        const exit = { col: level.exitCol, row: level.exitRow };
-        const banned = new Set([
-          ...criticalPath(level.map, start, level.key, level.key2, exit),
-          ...tilesWithin(level.map, start, SPAWN_SAFE_RADIUS),
-          ...level.coins.map(key),
-          key(level.key),
-          ...(level.key2 ? [key(level.key2)] : []),
-          key(exit),
-        ]);
-        for (const t of level.traps) {
-          if (t.type === 'mummy') {
-            for (let c = t.patrolCols[0]; c <= t.patrolCols[1]; c++) banned.add(tileKey(c, t.row));
-          } else banned.add(key(t));
-        }
+        const banned = bannedTiles(level);
         for (const d of planDecor(level, seed)) {
           expect(banned.has(key(d)), `${index}/${seed} ${key(d)}`).toBe(false);
           expect(level.map[d.row]?.[d.col], `${key(d)} is plain floor`).toBe(0);
@@ -93,5 +99,75 @@ describe('planDecor', () => {
     const before = JSON.stringify(level);
     planDecor(level, 42);
     expect(JSON.stringify(level)).toBe(before);
+  });
+});
+
+describe('planVines', () => {
+  it('gives the same vines for the same seed, and different vines for another', () => {
+    const level = generateLevel(1, 42);
+    expect(planVines(generateLevel(1, 42), 42)).toEqual(planVines(level, 42));
+    expect(planVines(level, 42).length).toBeGreaterThan(0);
+    expect(planVines(level, 43)).not.toEqual(planVines(level, 42));
+  });
+
+  it('hangs only on plain floor with a wall to the north, never on an avoided tile', () => {
+    for (const index of [0, 1, 3]) {
+      for (const seed of SEEDS) {
+        const level = generateLevel(index, seed);
+        const banned = bannedTiles(level);
+        for (const v of planVines(level, seed)) {
+          expect(v.kind).toBe('vine');
+          expect(v.side).toBe('n');
+          expect(wall(level, v.col, v.row - 1), `${index}/${seed} ${key(v)}`).toBe(true);
+          expect(level.map[v.row]?.[v.col], `${key(v)} is plain floor`).toBe(0);
+          expect(banned.has(key(v)), `${index}/${seed} ${key(v)}`).toBe(false);
+          for (const t of [v.shift, v.turn]) {
+            expect(t).toBeGreaterThanOrEqual(0);
+            expect(t).toBeLessThan(1);
+          }
+        }
+      }
+    }
+  });
+
+  it('draws from a stream of its own: planDecor is unchanged, and vines share tiles or not', () => {
+    let shared = 0;
+    let alone = 0;
+    for (const seed of SEEDS) {
+      const level = generateLevel(1, seed);
+      const before = JSON.stringify(planDecor(level, seed));
+      const vines = planVines(level, seed, 0.5);
+      const decor = planDecor(level, seed);
+      expect(JSON.stringify(decor)).toBe(before);
+      const props = new Set(decor.map(key));
+      for (const v of vines) {
+        if (props.has(key(v))) shared++;
+        else alone++;
+      }
+    }
+    expect(shared).toBeGreaterThan(0);
+    expect(alone).toBeGreaterThan(0);
+  });
+
+  it('is sparse at the default density, and the density scales it', () => {
+    let some = 0;
+    let more = 0;
+    let eligible = 0;
+    for (const seed of SEEDS) {
+      const level = generateLevel(1, seed);
+      some += planVines(level, seed).length;
+      more += planVines(level, seed, VINE_CHANCE * 2).length;
+      eligible += planVines(level, seed, 1).length;
+    }
+    expect(some).toBeGreaterThan(0);
+    expect(some).toBeLessThan(eligible * VINE_CHANCE * 1.3);
+    expect(more).toBeGreaterThan(some);
+    expect(planVines(generateLevel(1, 42), 42, 0)).toEqual([]);
+  });
+
+  it('dresses levels 0 and 1 on seed 42', () => {
+    for (const index of [0, 1]) {
+      expect(planVines(generateLevel(index, 42), 42).length).toBeGreaterThan(0);
+    }
   });
 });

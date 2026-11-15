@@ -1,5 +1,5 @@
 {
-  "$comment": "Torchlit Sandstone (v2 src/game/lib/palette.js), the only place a colour literal may live. sRGB hex. Ramps run dark to light. Reservations: fire ramp for hazards and telegraphs only, gold for pickups only, curse teal for mummies only, steel for blades and spikes only, HERO_* for the hero only. LIGHT values are either hex or the name of a P colour. HERO_* starting values are sampled from docs/art/pip-concept.png; HERO_EYE and HERO_PUPIL (ticket 11) are the concept's eye whites and pupils. Ticket 11 moved HERO_HAT and HERO_HAT_BAND darker and greener so the hat reads olive under the warm key and torch, and HERO_COAT a little bluer, off STEEL_DARK.",
+  "$comment": "Torchlit Sandstone (v2 src/game/lib/palette.js), the only place a colour literal may live. sRGB hex. Ramps run dark to light. Reservations: fire ramp for hazards and telegraphs only, gold for pickups only, curse teal for mummies only, steel for blades and spikes only, HERO_* for the hero only. LIGHT values are either hex or the name of a P colour. HERO_* starting values are sampled from docs/art/pip-concept.png; MOSS_LIGHT (ticket 18, not in v2) lifts moss and vines off the shadowed south faces. HERO_EYE and HERO_PUPIL (ticket 11) are the concept's eye whites and pupils. Ticket 11 moved HERO_HAT and HERO_HAT_BAND darker and greener so the hat reads olive under the warm key and torch, and HERO_COAT a little bluer, off STEEL_DARK.",
   "P": {
     "INK": "#0e0a0c",
     "SHADOW": "#1c1418",
@@ -16,6 +16,7 @@
 
     "MOSS_DARK": "#26331f",
     "MOSS": "#45583a",
+    "MOSS_LIGHT": "#9dcc5a",
     "BONE": "#8a7f6c",
 
     "LINEN_DARK": "#6f7562",

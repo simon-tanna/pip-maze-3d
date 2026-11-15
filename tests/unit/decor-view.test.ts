@@ -3,10 +3,18 @@ import { Euler, Matrix4, Quaternion, Vector3 } from 'three';
 import type { InstancedMesh, Light, Object3D } from 'three';
 import { gltfKit } from '@assets/models';
 import type { Gltf } from '@assets/models';
-import { DECOR_KINDS } from '@core/decor';
+import { PROP_KINDS } from '@core/decor';
 import type { DecorPlacement } from '@core/decor';
 import { TILE_SIZE, tileToWorld } from '@core/grid';
-import { createDecorView, DECOR_MODEL, DECOR_NODE } from '@render/decor';
+import { WALL_HEIGHT } from '@render/chamber-kit';
+import {
+  createDecorView,
+  DECOR_MODEL,
+  DECOR_NODE,
+  MOSS_WIDTH,
+  VINE_LENGTH,
+  VINE_WIDTH,
+} from '@render/decor';
 import { look } from '@render/look';
 import { parseModel } from './support/glb';
 
@@ -21,6 +29,9 @@ const PLAN: DecorPlacement[] = [
   { col: 6, row: 4, kind: 'bones', side: 'w', shift: 0.5, turn: 0.5 },
   { col: 7, row: 4, kind: 'rubble', side: 'e', shift: 1 - 1e-9, turn: 0 },
   { col: 8, row: 4, kind: 'bones', side: 'n', shift: 0, turn: 0.99 },
+  { col: 3, row: 2, kind: 'vine', side: 'n', shift: 0.5, turn: 0 },
+  { col: 9, row: 2, kind: 'vine', side: 'n', shift: 0, turn: 0.99 },
+  { col: 10, row: 2, kind: 'moss', side: 'n', shift: 0, turn: 0.5 },
 ];
 
 const meshOf = (group: Object3D, kind: string) =>
@@ -30,8 +41,9 @@ const instance = (mesh: InstancedMesh, i: number) => {
   mesh.getMatrixAt(i, m);
   const p = new Vector3();
   const q = new Quaternion();
-  m.decompose(p, q, new Vector3());
-  return { p, yaw: new Euler().setFromQuaternion(q, 'YXZ').y };
+  const s = new Vector3();
+  m.decompose(p, q, s);
+  return { p, s, yaw: new Euler().setFromQuaternion(q, 'YXZ').y };
 };
 const D = look.decor;
 
@@ -39,7 +51,7 @@ describe('decor view', () => {
   it('instances each kind from the plan, one InstancedMesh per kind', () => {
     const v = createDecorView(kit);
     v.build(PLAN);
-    for (const kind of DECOR_KINDS) {
+    for (const kind of PROP_KINDS) {
       const mesh = meshOf(v.group, kind);
       expect(mesh.isInstancedMesh, kind).toBe(true);
       expect(mesh.count, kind).toBe(PLAN.filter((d) => d.kind === kind).length);
@@ -53,9 +65,37 @@ describe('decor view', () => {
     const { p, yaw } = instance(meshOf(v.group, 'moss'), 0);
     const tile = tileToWorld(3, 2);
     expect(p.x).toBeCloseTo(tile.x);
-    expect(p.z).toBeCloseTo(tile.z - TILE_SIZE / 2); // the wall's south face
+    expect(p.z).toBeCloseTo(tile.z - TILE_SIZE / 2 + D.mossOffset); // on the south face
     expect(p.y).toBe(0);
     expect(yaw).toBeCloseTo(0); // local +z (the patch's front) faces south
+  });
+
+  it('keeps a slid moss patch on its own wall, scaled by look.decor.mossScale', () => {
+    const v = createDecorView(kit);
+    v.build(PLAN);
+    const { p, s } = instance(meshOf(v.group, 'moss'), 1);
+    expect(s.x).toBeCloseTo(D.mossScale);
+    expect(s.y).toBeCloseTo(D.mossScale);
+    const half = (MOSS_WIDTH * D.mossScale) / 2;
+    expect(p.x - half).toBeGreaterThanOrEqual(tileToWorld(10, 2).x - TILE_SIZE / 2 - 1e-5);
+  });
+
+  it('hangs vines from the cap of the wall to the north, as long as look.decor says', () => {
+    const v = createDecorView(kit);
+    v.build(PLAN);
+    const mesh = meshOf(v.group, 'vine');
+    expect(mesh.count).toBe(2);
+    const full = instance(mesh, 0);
+    const tile = tileToWorld(3, 2);
+    expect(full.p.x).toBeCloseTo(tile.x);
+    expect(full.p.z).toBeCloseTo(tile.z - TILE_SIZE / 2);
+    expect(full.p.y).toBeCloseTo(WALL_HEIGHT);
+    expect(full.yaw).toBeCloseTo(0);
+    expect(full.s.y * VINE_LENGTH).toBeCloseTo(Math.min(D.vineLength, WALL_HEIGHT));
+    const short = instance(mesh, 1);
+    expect(short.s.y * VINE_LENGTH).toBeCloseTo(D.vineLength * (1 - 0.99 * D.vineJitter));
+    // Slid to the end of its wall, it still hangs inside its tile.
+    expect(short.p.x - VINE_WIDTH / 2).toBeCloseTo(tileToWorld(9, 2).x - TILE_SIZE / 2);
   });
 
   it('sets props in from the wall they hug, shifted along it and turned by the plan jitter', () => {
@@ -81,11 +121,11 @@ describe('decor view', () => {
   it('rebuilds a level by reusing its meshes and materials, with no lights', () => {
     const v = createDecorView(kit);
     v.build(PLAN);
-    const before = DECOR_KINDS.map((k) => meshOf(v.group, k));
+    const before = PROP_KINDS.map((k) => meshOf(v.group, k));
     const materials = before.map((m) => m.material);
     v.build(PLAN.slice(0, 1));
     v.build([]);
-    DECOR_KINDS.forEach((k, i) => {
+    PROP_KINDS.forEach((k, i) => {
       expect(meshOf(v.group, k)).toBe(before[i]);
       expect(meshOf(v.group, k).material).toBe(materials[i]);
       expect(meshOf(v.group, k).count).toBe(0);
@@ -97,13 +137,15 @@ describe('decor view', () => {
     expect(lights).toEqual([]);
   });
 
-  it('casts shadows from the floor props, not from the moss on the wall', () => {
+  it('casts shadows from the floor props, not from the moss and vines on the wall', () => {
     const v = createDecorView(kit);
-    expect(meshOf(v.group, 'moss').castShadow).toBe(false);
+    for (const kind of ['moss', 'vine']) {
+      expect(meshOf(v.group, kind).castShadow, kind).toBe(false);
+      expect(meshOf(v.group, kind).receiveShadow, kind).toBe(true);
+    }
     for (const kind of ['bones', 'rubble', 'pot']) {
       expect(meshOf(v.group, kind).castShadow, kind).toBe(true);
       expect(meshOf(v.group, kind).receiveShadow, kind).toBe(true);
     }
-    expect(meshOf(v.group, 'moss').receiveShadow).toBe(true);
   });
 });
