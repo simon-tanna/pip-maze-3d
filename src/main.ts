@@ -207,9 +207,9 @@ async function boot(shell: Shell): Promise<void> {
   const damageFlash = createDamageFlash({
     root: hudLayer,
     timing: look.hud,
+    diedAt: () => sim.heroDiedAt(),
     reducedMotion: () => reducedMotion.matches,
   });
-  sim.on('died', () => damageFlash.hit(clock.now()));
   sim.on('chestOpened', () => pickups.openChest(clock.now()));
   // A revealed key 2, or a key back on its tile after a death, fades in.
   sim.on('keyRevealed', (e) => pickups.keyAppeared(e.index, clock.now()));
