@@ -1,11 +1,11 @@
 """Procedurally build the placeholder chamber kit and export it as one .glb.
 
-One scene, one GLB (public/models/placeholders/chamber.glb) with the same node names as
-ticket 09's sandstone kit (build_chamber_kit.py), so swapping kits is a file change. The
-game loads the sandstone kit; this greybox stays as a debugging fallback (it has no cap
-lip). The contract (local frames, which way faces look, the contact strip's UVs) is
-documented in src/render/chamber-kit.ts and checked by tests/unit/chamber-kit.test.ts.
-Variants are duplicate meshes.
+One scene, one GLB (public/models/placeholders/chamber.glb) with the same node names and
+local frames as ticket 09's sandstone kit (build_chamber_kit.py). The game loads the
+sandstone kit; this greybox is kept for reference only and is NOT a drop-in for it: it has
+no cap lip and no baked texture atlas, both of which the kit contract (documented in
+src/render/chamber-kit.ts) requires and tests/unit/chamber-kit.test.ts checks, and that
+test runs against the sandstone kit only. Variants are duplicate meshes.
 
 Blender is Z-up and export_yup maps Blender (x, y, z) to three.js (x, z, -y), so three's
 south (+z) is Blender's -y.
