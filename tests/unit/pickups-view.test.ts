@@ -154,6 +154,23 @@ describe('pickups view', () => {
     expect(v.shake(at - 1)).toEqual({ x: 0, y: 0 });
   });
 
+  it('scales the key’s floor glow with look.pickups.keySize, as the coin’s follows coinSize', () => {
+    const saved = { keySize: P.keySize, coinSize: P.coinSize };
+    try {
+      const v = view();
+      const glow = (name: string) => named(v.group, `${name}_glow`).scale.x;
+      v.update(ALL, 0);
+      const [key, coin] = [glow('key_0'), glow('coin_0')];
+      P.keySize *= 2;
+      P.coinSize *= 2;
+      v.update(ALL, 0);
+      expect(glow('key_0')).toBeCloseTo(2 * key);
+      expect(glow('coin_0')).toBeCloseTo(2 * coin);
+    } finally {
+      Object.assign(P, saved);
+    }
+  });
+
   it('fades a key in from scale 0.4 over 500 ms (Back)', () => {
     const v = view();
     const key = named(v.group, 'key_0');

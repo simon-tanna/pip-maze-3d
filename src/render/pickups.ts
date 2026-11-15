@@ -290,8 +290,9 @@ export function createPickupsView(kit: Gltf, opts: PickupsOptions): PickupsView 
         k.mesh.rotation.set(tilt, turn(p.keyTurnMs, 0), 0);
         const u = k.appearedAt === null ? 1 : clamp01((timeMs - k.appearedAt) / p.keyAppearMs);
         const grow = u >= 1 ? 1 : p.keyAppearFrom + (1 - p.keyAppearFrom) * easeOutBack(u);
-        k.mesh.scale.setScalar((p.keySize / KEY_LENGTH) * grow);
-        k.glow.scale.setScalar(p.glowSize * grow);
+        const size = p.keySize / KEY_LENGTH;
+        k.mesh.scale.setScalar(size * grow);
+        k.glow.scale.setScalar(p.glowSize * size * grow);
       });
 
       if (!chest || !lid || !chestGlow) return;
