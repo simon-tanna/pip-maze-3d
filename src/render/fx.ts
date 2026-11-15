@@ -44,9 +44,6 @@ export const FX_CAPACITY = { normal: 64, additive: 96 } as const;
 
 /** Salt for the FX RNG, so it never repeats the generator's or the coin phases' stream. */
 const FX_SALT = 0xf0_0d_f1_e5;
-/** Lowest a particle centre may fall to, m (just above the floor). */
-const FLOOR_Y = 0.03;
-const DUST_Y = 0.08;
 
 /** One live particle as drawn, for tests and the dev `__game` handle. */
 export interface FxParticle {
@@ -127,9 +124,9 @@ void main() {
     // A bright core and a four-point glint.
     float a = pow( max( 0.0, 1.0 - r ), 3.0 ) + max( 0.0, 1.0 - abs( p.x * p.y ) * 24.0 - r * 0.9 );
     a = clamp( a, 0.0, 1.0 ) * vColor.a;
-    gl_FragColor = vec4( vColor.rgb * a, a );
+    gl_FragColor = vec4( vColor.rgb, a ); // AdditiveBlending multiplies by a (SrcAlpha)
   #else
-    float a = smoothstep( 1.0, 0.35, r ) * vColor.a;
+    float a = ( 1.0 - smoothstep( 0.35, 1.0, r ) ) * vColor.a;
     gl_FragColor = vec4( vColor.rgb, a );
   #endif
 }
@@ -179,7 +176,7 @@ function createPool(name: string, capacity: number, blending: Blending, star: bo
       next = 0;
       geometry.instanceCount = 0;
     },
-    write(i: number, p: FxParticle, s: Slot, gain: number) {
+    write(i: number, p: Readonly<FxParticle>, s: Slot, gain: number) {
       offset.setXYZ(i, p.x, p.y, p.z);
       size.setX(i, p.size);
       tint.setXYZW(i, s.r * gain, s.g * gain, s.b * gain, p.alpha);
@@ -203,8 +200,12 @@ export function createFx(opts: FxOptions): Fx {
   const gold = color('GOLD_LIGHT');
 
   let rng: Rng = mulberry32(FX_SALT);
-  let diedAtMs: number | null = null;
-  let live: FxParticle[] = [];
+  /** The death time is the sim's (`heroDiedAt`); null until `listen`. */
+  let diedAt: () => number | null = () => null;
+  /** The time the last update drew at (null: nothing drawn since a clear). */
+  let drawnAtMs: number | null = null;
+  /** One scratch particle, rewritten per slot as the pools are drawn. */
+  const scratch: FxParticle = { kind: 'dust', x: 0, y: 0, z: 0, size: 0, alpha: 0 };
 
   const range = (min: number, max: number) => min + (max - min) * rng();
 
@@ -213,17 +214,23 @@ export function createFx(opts: FxOptions): Fx {
     const f = look.fx;
     const pool = kind === 'sparkle' ? additive : normal;
     for (let n = 0; n < count; n++) {
-      // Elevation band per kind: dust rises, a puff spreads every way, sparkles fountain.
-      const [elMin, elMax] = kind === 'dust' ? [15, 75] : kind === 'puff' ? [-15, 60] : [0, 85];
       const az = rng() * Math.PI * 2;
-      const el = (range(elMin, elMax) * Math.PI) / 180;
+      const el =
+        ((kind === 'dust'
+          ? range(f.dustElevationMin, f.dustElevationMax)
+          : kind === 'puff'
+            ? range(f.puffElevationMin, f.puffElevationMax)
+            : range(f.sparkleElevationMin, f.sparkleElevationMax)) *
+          Math.PI) /
+        180;
       const speed =
         kind === 'dust'
           ? range(f.dustSpeedMin, f.dustSpeedMax)
           : kind === 'puff'
             ? range(f.puffSpeedMin, f.puffSpeedMax)
             : range(f.sparkleSpeedMin, f.sparkleSpeedMax);
-      const tint = kind === 'sparkle' ? gold : (dustColours[rng() < 0.5 ? 0 : 1] ?? gold);
+      const tint =
+        kind === 'sparkle' ? gold : (dustColours[rng() < f.dustSandShare ? 0 : 1] ?? gold);
       const slot: Slot = {
         kind,
         startMs: atMs,
@@ -236,8 +243,13 @@ export function createFx(opts: FxOptions): Fx {
         vz: speed * Math.cos(el) * Math.sin(az),
         gravity: kind === 'sparkle' ? f.sparkleGravity : 0,
         size: kind === 'dust' ? f.dustSize : kind === 'puff' ? f.puffSize : f.sparkleSize,
-        from: kind === 'dust' ? 1 : kind === 'puff' ? 1.6 : 1.2,
-        to: kind === 'dust' ? 0.4 : kind === 'puff' ? 0.3 : 0.2,
+        from:
+          kind === 'dust'
+            ? f.dustScaleFrom
+            : kind === 'puff'
+              ? f.puffScaleFrom
+              : f.sparkleScaleFrom,
+        to: kind === 'dust' ? f.dustScaleTo : kind === 'puff' ? f.puffScaleTo : f.sparkleScaleTo,
         alpha: kind === 'dust' ? f.dustAlpha : kind === 'puff' ? f.puffAlpha : 1,
         r: tint.r,
         g: tint.g,
@@ -247,55 +259,55 @@ export function createFx(opts: FxOptions): Fx {
     }
   };
 
+  /** Slot `s` as drawn at `timeMs`, into `out`; false when it is not alive then. */
+  const particleAt = (s: Slot, timeMs: number, out: FxParticle): boolean => {
+    const age = timeMs - s.startMs;
+    if (age < 0 || age >= s.lifeMs) return false;
+    const t = age / 1000;
+    const u = age / s.lifeMs;
+    out.kind = s.kind;
+    out.x = s.x + s.vx * t;
+    out.y = Math.max(look.fx.floorY, s.y + s.vy * t - 0.5 * s.gravity * t * t);
+    out.z = s.z + s.vz * t;
+    out.size = s.size * (s.from + (s.to - s.from) * u);
+    out.alpha = s.alpha * (1 - u);
+    return true;
+  };
+
   const drawPool = (pool: ReturnType<typeof createPool>, timeMs: number, gain: number) => {
     let count = 0;
     for (const s of pool.slots) {
-      if (!s) continue;
-      const age = timeMs - s.startMs;
-      if (age < 0 || age >= s.lifeMs) continue;
-      const t = age / 1000;
-      const u = age / s.lifeMs;
-      const p: FxParticle = {
-        kind: s.kind,
-        x: s.x + s.vx * t,
-        y: Math.max(FLOOR_Y, s.y + s.vy * t - 0.5 * s.gravity * t * t),
-        z: s.z + s.vz * t,
-        size: s.size * (s.from + (s.to - s.from) * u),
-        alpha: s.alpha * (1 - u),
-      };
-      pool.write(count++, p, s, gain);
-      live.push(p);
+      if (s && particleAt(s, timeMs, scratch)) pool.write(count++, scratch, s, gain);
     }
     pool.commit(count);
+  };
+
+  const clear = () => {
+    normal.clear();
+    additive.clear();
+    drawnAtMs = null;
   };
 
   const self: Fx = {
     group,
     build(seed) {
       rng = mulberry32((seed ^ FX_SALT) >>> 0);
-      diedAtMs = null;
-      normal.clear();
-      additive.clear();
-      live = [];
+      clear();
     },
-    teardown() {
-      normal.clear();
-      additive.clear();
-      live = [];
-    },
+    teardown: clear,
     listen(sim) {
+      diedAt = () => sim.heroDiedAt();
       const now = () => sim.timeAt(0);
       const f = () => look.fx;
-      sim.on('landed', (e) => burst('dust', f().dustLand, e.world.x, DUST_Y, e.world.z, now()));
+      sim.on('landed', (e) => burst('dust', f().dustLand, e.world.x, f().dustY, e.world.z, now()));
       sim.on('respawned', (e) =>
-        burst('dust', f().dustRespawn, e.world.x, DUST_Y, e.world.z, now()),
+        burst('dust', f().dustRespawn, e.world.x, f().dustY, e.world.z, now()),
       );
       sim.on('died', () => {
         // Where the hero collapses (the death spot, knocked back), once it is gone.
-        diedAtMs = now();
         const spot = sim.heroPosition(0);
         const push = knockback(sim.heroFacing(), look.hero.knockbackM);
-        const at = diedAtMs + DEATH_TIMING.gone;
+        const at = (sim.heroDiedAt() ?? now()) + DEATH_TIMING.gone;
         burst('puff', f().puffDeath, spot.x + push.x, f().puffHeight, spot.z + push.z, at);
       });
       const lift = () => look.pickups.floatHeight;
@@ -311,17 +323,28 @@ export function createFx(opts: FxOptions): Fx {
       burst('sparkle', look.fx.sparkleKeyAppear, at.x, look.pickups.floatHeight, at.z, atMs);
     },
     update(timeMs) {
-      live = [];
+      drawnAtMs = timeMs;
       drawPool(normal, timeMs, 1);
       drawPool(additive, timeMs, look.fx.sparkleIntensity);
     },
-    particles: () => live.map((p) => ({ ...p })),
+    particles() {
+      // Built on demand (tests, `__game`): the per-frame update allocates nothing.
+      const out: FxParticle[] = [];
+      if (drawnAtMs === null) return out;
+      for (const pool of [normal, additive]) {
+        for (const s of pool.slots) {
+          if (s && particleAt(s, drawnAtMs, scratch)) out.push({ ...scratch });
+        }
+      }
+      return out;
+    },
     drawn: () => ({
       normal: normal.mesh.geometry.instanceCount,
       additive: additive.mesh.geometry.instanceCount,
     }),
     shake(timeMs) {
       const f = look.fx;
+      const diedAtMs = diedAt();
       if (opts.reducedMotion() || diedAtMs === null) return { x: 0, y: 0 };
       const dt = timeMs - diedAtMs;
       if (dt < 0 || dt >= f.deathShakeMs) return { x: 0, y: 0 };

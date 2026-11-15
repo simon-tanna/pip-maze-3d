@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AdditiveBlending } from 'three';
+import type { Mesh, ShaderMaterial } from 'three';
 import { tileToWorld } from '@core/grid';
 import { createSession, createSim, DEATH_TIMING } from '@game/sim';
+import type { Sim } from '@game/sim';
 import { createGameState } from '@game/state';
 import { createFx, FX_CAPACITY } from '@render/fx';
 import type { FxParticle } from '@render/fx';
@@ -165,5 +168,75 @@ describe('fx: the death camera shake', () => {
   it('none under reduced motion', () => {
     const { g, killed } = dieAt(true);
     for (const dt of [0, 10, 30, 60, 90]) expect(g.fx.shake(killed + dt)).toEqual({ x: 0, y: 0 });
+  });
+
+  it('reads the death time from sim.heroDiedAt(), with no died event of its own', () => {
+    const fx = createFx({ reducedMotion: () => false });
+    fx.build(7);
+    const sim = { on: () => undefined, heroDiedAt: () => 1000 } as unknown as Sim;
+    fx.listen(sim);
+    const s = fx.shake(1000 + look.fx.deathShakeMs / 4);
+    expect(Math.hypot(s.x, s.y)).toBeGreaterThan(0);
+  });
+});
+
+describe('fx: the particle shaders', () => {
+  const materials = () => {
+    const fx = createFx({ reducedMotion: () => false });
+    return fx.group.children.map((c) => (c as Mesh).material as ShaderMaterial);
+  };
+
+  it('every literal smoothstep has edge0 < edge1 (GLSL leaves the reverse undefined)', () => {
+    let seen = 0;
+    for (const m of materials()) {
+      const calls = m.fragmentShader.matchAll(/smoothstep\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,/g);
+      for (const [, e0, e1] of calls) {
+        seen++;
+        expect(Number(e0)).toBeLessThan(Number(e1));
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
+  });
+
+  it('additive sparkles are linear in alpha: SrcAlpha blending, so rgb is not premultiplied', () => {
+    const additive = materials().find((m) => m.blending === AdditiveBlending);
+    expect(additive).toBeDefined();
+    // AdditiveBlending is (SrcAlpha, One): an rgb already × a would land as rgb × a².
+    expect(additive?.fragmentShader).not.toMatch(/gl_FragColor\s*=\s*vec4\(\s*vColor\.rgb\s*\*/);
+  });
+});
+
+describe('fx: shape tunables live in look.fx', () => {
+  const saved = { ...look.fx };
+  afterEach(() => Object.assign(look.fx, saved));
+
+  it('birth scale, spawn height and the floor clamp are read from look', () => {
+    const g = setup();
+    look.fx.dustScaleFrom = 2;
+    look.fx.dustY = 0.2;
+    g.east();
+    const [d] = g.live('dust');
+    expect(d?.size).toBeCloseTo(look.fx.dustSize * 2, 9);
+    expect(d?.y).toBeCloseTo(0.2, 9);
+    look.fx.floorY = 0.5;
+    expect(g.live('dust')[0]?.y).toBeCloseTo(0.5, 9);
+  });
+
+  it('a vertical elevation band launches every dust straight up', () => {
+    const g = setup();
+    look.fx.dustElevationMin = 90;
+    look.fx.dustElevationMax = 90;
+    g.east();
+    const t = g.sim.timeAt(0);
+    g.fx.update(t);
+    const born = g.fx.particles().filter((p) => p.kind === 'dust');
+    g.fx.update(t + 100);
+    const later = g.fx.particles().filter((p) => p.kind === 'dust');
+    expect(later).toHaveLength(born.length);
+    later.forEach((p, i) => {
+      expect(p.x).toBeCloseTo(born[i]?.x ?? NaN, 6);
+      expect(p.z).toBeCloseTo(born[i]?.z ?? NaN, 6);
+      expect(p.y).toBeGreaterThan(born[i]?.y ?? Infinity);
+    });
   });
 });
