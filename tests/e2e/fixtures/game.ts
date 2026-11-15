@@ -47,7 +47,8 @@ export interface GameDriver {
   resume(): Promise<void>;
   hazardsOff(off: boolean): Promise<void>;
   /**
-   * Walk press sequences exactly (see `walkOps`), in one round trip. Ends idle.
+   * Walk press sequences exactly (see `walkOps`), in one round trip. Ends idle, and past
+   * any hit-stop a key pickup started.
    * `frames: 'last'` renders only after the final step (same ticks; for long journeys,
    * where each SwiftShader frame can cost a second under load).
    */
@@ -100,15 +101,17 @@ function createDriver(page: Page): GameDriver {
     walk: (moves, { frames = 'every' } = {}) => {
       const ops = walkOps(moves);
       const last = ops.length - 1;
-      return run(
-        ops.map((op: WalkOp, i) =>
+      return run([
+        ...ops.map((op: WalkOp, i): [string, unknown?, unknown?] =>
           op.op === 'advance'
             ? ['advance', op.ms, { render: frames === 'every' || i === last }]
             : op.op === 'settle'
               ? ['settle']
               : [op.op, op.dir],
         ),
-      );
+        // A walk that ends on a key ends after its hit-stop: what follows runs on live ticks.
+        ['settle'],
+      ]);
     },
     camera: () =>
       page.evaluate(() => {
