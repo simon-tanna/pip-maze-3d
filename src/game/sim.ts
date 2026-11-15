@@ -169,7 +169,10 @@ export interface Sim {
    * every listener carry over.
    */
   load(level: SimLevel): void;
-  /** The level's flames and their current states (for views and the dev overlay). */
+  /**
+   * The level's flames and their current states (for views and the dev overlay). The same
+   * array and objects are refilled on every call: read them, don't keep them.
+   */
   flames(): readonly FlameNow[];
   /** The level's blades and their current angles (for views and the dev overlay). */
   blades(): readonly BladeNow[];
@@ -249,6 +252,8 @@ export function createSim({
   let flames: readonly Flame[] = initialFlames;
   /** Each flame's state as of the last tick (go-live is a change to `on`). */
   let flameStates: FlameState[] = [];
+  /** What `flames()` returns: reused, so the per-frame call allocates no array. */
+  const flamesNow: FlameNow[] = [];
   let blades: readonly Blade[] = initialBlades;
   let death: Death | null = null;
   /** Grace lasts until this sim time (ms). */
@@ -465,12 +470,19 @@ export function createSim({
       input.clear();
     },
     flames: () => {
+      // One array, refilled per call (the flame view reads it every frame).
       const t = levelMs();
-      return flames.map((f, i) => ({
-        ...f,
-        state: flameStates[i] ?? 'off',
-        intoMs: flameClock(t, f.phase).intoMs,
-      }));
+      flamesNow.length = flames.length;
+      for (let i = 0; i < flames.length; i++) {
+        const f = flames[i];
+        if (!f) continue;
+        const now = (flamesNow[i] ??= { tile: f.tile, phase: 0, state: 'off', intoMs: 0 });
+        now.tile = f.tile;
+        now.phase = f.phase;
+        now.state = flameStates[i] ?? 'off';
+        now.intoMs = flameClock(t, f.phase).intoMs;
+      }
+      return flamesNow;
     },
     blades: () => {
       const t = levelMs();

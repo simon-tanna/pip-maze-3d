@@ -26,17 +26,27 @@ const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 /** `ms / span` clamped to 0–1; a zero span is already done. */
 const progress = (ms: number, span: number) => (span > 0 ? clamp01(ms / span) : 1);
 
-export function flameVisual(state: FlameState, intoMs: number): FlameVisual {
+/** Writes into `out` when given (the view reuses one per flame), and returns it. */
+export function flameVisual(
+  state: FlameState,
+  intoMs: number,
+  out: FlameVisual = { size: 0, alpha: 0, heat: 0 },
+): FlameVisual {
   const f = look.flame;
   if (state === 'on') {
     const k = progress(intoMs, f.igniteMs);
-    const size = k >= 1 ? 1 : f.igniteFrom + (1 - f.igniteFrom) * backOut(k);
-    return { size, alpha: 1, heat: 1 };
+    out.size = k >= 1 ? 1 : f.igniteFrom + (1 - f.igniteFrom) * backOut(k);
+    out.alpha = 1;
+    out.heat = 1;
+  } else if (state === 'telegraph') {
+    out.size = 0;
+    out.alpha = 0;
+    out.heat = sineIn(progress(intoMs, HAZARD_TIMING.telegraph));
+  } else {
+    const k = progress(intoMs, f.collapseMs);
+    out.size = f.collapseFrom + (f.collapseTo - f.collapseFrom) * k;
+    out.alpha = 1 - k;
+    out.heat = 1 - progress(intoMs, f.coolMs);
   }
-  if (state === 'telegraph') {
-    return { size: 0, alpha: 0, heat: sineIn(progress(intoMs, HAZARD_TIMING.telegraph)) };
-  }
-  const heat = 1 - progress(intoMs, f.coolMs);
-  const k = progress(intoMs, f.collapseMs);
-  return { size: f.collapseFrom + (f.collapseTo - f.collapseFrom) * k, alpha: 1 - k, heat };
+  return out;
 }

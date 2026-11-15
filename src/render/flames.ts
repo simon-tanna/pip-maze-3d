@@ -49,6 +49,7 @@ import type { FlameState } from '@core/hazards';
 import { TILE_SIZE, tileToWorld } from '@core/grid';
 import type { WorldXZ } from '@core/grid';
 import { createFlamePools } from './flame-pools';
+import type { PoolFlame } from './flame-pools';
 import { flameVisual } from './flame-visual';
 import type { FlameVisual } from './flame-visual';
 import { look } from './look';
@@ -203,6 +204,7 @@ const EMBER_RADIUS = 0.5;
 const EMBER_SPREAD = 0.35;
 /** Render-local RNG seed for embers (not level-visible state, but replayable). */
 const EMBER_SEED = 0x0f1a;
+const ORIGIN: WorldXZ = { x: 0, z: 0 };
 /** Below this the glow shader discards every fragment. */
 const GLOW_FLOOR = 0.002;
 /** Longest frame step the view simulates, ms (a paused sim's `advance` jumps further). */
@@ -308,7 +310,9 @@ export function createFlamesView(kit: Gltf, opts: FlamesViewOptions = {}): Flame
 
   let parts: FlameParts[] = [];
   let slabs: Mesh[] = [];
+  /** Each flame's visual and pool input, refilled in place every frame. */
   let shown: FlameVisual[] = [];
+  const poolFlames: PoolFlame[] = [];
   let lastMs: number | null = null;
 
   const spawnEmber = (at: WorldXZ) => {
@@ -330,12 +334,12 @@ export function createFlamesView(kit: Gltf, opts: FlamesViewOptions = {}): Flame
   const stepEmbers = (flames: readonly FlameStateNow[], dtMs: number) => {
     const rate = look.flame.embersPerSecond / 1000;
     let changed = false;
-    flames.forEach((f, k) => {
+    for (let k = 0; k < flames.length; k++) {
       const world = parts[k]?.world;
-      if (!world) return;
-      if (f.state !== 'telegraph') {
+      if (!world) continue;
+      if (flames[k]?.state !== 'telegraph') {
         emberDebt[k] = 0;
-        return;
+        continue;
       }
       let debt = (emberDebt[k] ?? 0) + rate * dtMs;
       for (; debt >= 1; debt -= 1) {
@@ -343,7 +347,7 @@ export function createFlamesView(kit: Gltf, opts: FlamesViewOptions = {}): Flame
         changed = true;
       }
       emberDebt[k] = debt;
-    });
+    }
     const dt = dtMs / 1000;
     for (let i = 0; i < EMBER_CAPACITY && dtMs > 0; i++) {
       const life = emberLife[i] ?? 1;
@@ -441,10 +445,20 @@ export function createFlamesView(kit: Gltf, opts: FlamesViewOptions = {}): Flame
       const t = frame.timeMs / 1000;
       const flick = 1 + f.flicker * (Math.sin(t * 61) + 0.5 * Math.sin(t * 23));
 
-      shown = flames.map((now, i) => {
-        const v = flameVisual(now.state, now.intoMs);
+      shown.length = flames.length;
+      poolFlames.length = flames.length;
+      for (let i = 0; i < flames.length; i++) {
+        const now = flames[i];
+        if (!now) continue;
+        const v = flameVisual(now.state, now.intoMs, (shown[i] ??= { size: 0, alpha: 0, heat: 0 }));
+        const pf = (poolFlames[i] ??= { x: 0, z: 0, state: 'off', heat: 0 });
+        pf.x = parts[i]?.world.x ?? 0;
+        pf.z = parts[i]?.world.z ?? 0;
+        pf.state = now.state;
+        pf.heat = v.heat;
+        pf.flicker = flick;
         const p = parts[i];
-        if (!p) return v;
+        if (!p) continue;
         const on = now.state === 'on';
 
         p.bed.roughness = f.bedRoughness;
@@ -470,25 +484,18 @@ export function createFlamesView(kit: Gltf, opts: FlamesViewOptions = {}): Flame
         // A dark decal collapses to a point, like a quiet column.
         const size = intensity > GLOW_FLOOR ? f.glowSize : 0;
         p.glow.scale.set(size, 1, size);
-        return v;
-      });
+      }
 
       stepEmbers(flames, dtMs);
       set(emberMaterial, 'uSize', f.emberSize);
       set(emberMaterial, 'uGain', f.emberGain);
 
-      allocator?.update(
-        flames.map((now, i) => ({
-          ...(parts[i]?.world ?? { x: 0, z: 0 }),
-          state: now.state,
-          heat: shown[i]?.heat ?? 0,
-          flicker: flick,
-        })),
-        frame.hero ?? { x: 0, z: 0 },
-        dtMs,
-      );
+      allocator?.update(poolFlames, frame.hero ?? ORIGIN, dtMs);
 
-      slabs.forEach((m, i) => (m.visible = this.showTruth && flames[i]?.state === 'on'));
+      for (let i = 0; i < slabs.length; i++) {
+        const m = slabs[i];
+        if (m) m.visible = this.showTruth && flames[i]?.state === 'on';
+      }
     },
     visuals: () => shown,
     embers: () => emberLife.reduce((n, life) => (life < 1 ? n + 1 : n), 0),
