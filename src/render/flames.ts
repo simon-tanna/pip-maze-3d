@@ -9,7 +9,7 @@
  * - An additive radial glow decal on the floor: `EMBER` → `FIRE_HOT` with the telegraph
  *   heat, `FIRE` with flicker while live, fading as the grate cools.
  * - Embers rising from the grate through the telegraph (one shared emitter, a render-local
- *   seeded RNG, simulated on the sim clock).
+ *   seeded RNG, stepped on the hazard clock, so they freeze when it stops).
  * - The rig's pool slots, through the allocator (`flame-pools.ts`), when given `pools`.
  *
  * Everything is driven by what the simulation reports each frame (`update(sim.flames())`:
@@ -216,8 +216,13 @@ export interface FlameStateNow extends FlameLayout {
 }
 
 export interface FlameFrame {
-  /** Sim time, ms (`sim.timeAt(alpha)`): drives the shader, flicker and embers. */
+  /** Sim time, ms (`sim.timeAt(alpha)`): drives the column shader and the flicker. */
   timeMs: number;
+  /**
+   * The level's hazard clock, ms (`sim.levelAt(alpha)`): embers and the pool fades step on
+   * its deltas, so they freeze with it (it stops when `leaving` begins).
+   */
+  levelMs: number;
   /** The hero, for the pool allocator's "nearest" pick. */
   hero?: WorldXZ;
 }
@@ -403,8 +408,9 @@ export function createFlamesView(kit: Gltf, opts: FlamesViewOptions = {}): Flame
     },
     update(flames, frame) {
       const f = look.flame;
-      const dtMs = lastMs === null ? 0 : Math.min(MAX_FRAME_MS, Math.max(0, frame.timeMs - lastMs));
-      lastMs = frame.timeMs;
+      const dtMs =
+        lastMs === null ? 0 : Math.min(MAX_FRAME_MS, Math.max(0, frame.levelMs - lastMs));
+      lastMs = frame.levelMs;
       const t = frame.timeMs / 1000;
       const flick = 1 + f.flicker * (Math.sin(t * 61) + 0.5 * Math.sin(t * 23));
 

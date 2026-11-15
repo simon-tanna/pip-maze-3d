@@ -148,6 +148,8 @@ export interface Sim {
   snapshot(): SimSnapshot;
   /** Simulation time at `alpha` of the way to the next tick, ms (what render draws). */
   timeAt(alpha: number): number;
+  /** The level's hazard clock at `alpha` (`levelMs`, which stops when `leaving` begins). */
+  levelAt(alpha: number): number;
   /** The hero's world position at `alpha`, from `stepPosition` mid-step. */
   heroPosition(alpha: number): WorldXZ;
   /**
@@ -424,6 +426,10 @@ export function createSim({
     },
     timeAt(alpha) {
       return now() + alpha * TICK_MS;
+    },
+    levelAt(alpha) {
+      const running = levelStartMs !== null && levelEndMs === null;
+      return levelMs() + (running ? alpha * TICK_MS : 0);
     },
     heroPosition(alpha) {
       if (death && !death.respawned) return death.spot;

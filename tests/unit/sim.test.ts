@@ -120,6 +120,15 @@ describe('hero simulation', () => {
     ticks(sim, 30);
     expect(sim.snapshot().levelMs).toBeCloseTo(100, 9);
   });
+
+  it('levelAt interpolates the hazard clock while it runs, and holds once leaving', () => {
+    const { sim, machine } = playing();
+    ticks(sim, 6);
+    expect(sim.levelAt(0.5)).toBeCloseTo(sim.snapshot().levelMs + 1000 / 120, 9);
+    machine.go('leaving');
+    ticks(sim, 30);
+    expect(sim.levelAt(0.5)).toBeCloseTo(sim.snapshot().levelMs, 9);
+  });
 });
 
 // Start (1,1), key (2,1), chest (3,1), a coin at (1,2).

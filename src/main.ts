@@ -224,7 +224,7 @@ async function boot(shell: Shell): Promise<void> {
     scene.environmentIntensity = look.lights.envIntensity;
     chamber.update();
     pickups.update(sim, timeMs);
-    flames.update(sim.flames(), { timeMs, hero: h.position }); // before the rig: the bench wins
+    flames.update(sim.flames(), { timeMs, levelMs: sim.levelAt(alpha), hero: h.position }); // before the rig: the bench wins
     blades.update(sim.blades());
     for (const f of devFrame) f();
     hud.update(timeMs);

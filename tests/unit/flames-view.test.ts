@@ -46,7 +46,7 @@ const part = (root: Object3D, i: number, name: string) =>
 const now = (...s: [FlameState, number][]): FlameStateNow[] =>
   FLAMES.map((f, i) => ({ ...f, state: s[i]?.[0] ?? 'off', intoMs: s[i]?.[1] ?? 5000 }));
 
-const frame = (timeMs: number) => ({ timeMs, hero: { x: 0, z: 0 } });
+const frame = (timeMs: number, levelMs = timeMs) => ({ timeMs, levelMs, hero: { x: 0, z: 0 } });
 
 describe('flames view (preset D)', () => {
   it('stands a grate, nozzle, bed, glow and column on each flame tile', () => {
@@ -126,6 +126,17 @@ describe('flames view (preset D)', () => {
     // None spawn while live or off; the live ones age out.
     for (let t = 496; t <= 2496; t += 16) view.update(now(['on', t - 496]), frame(t));
     expect(view.embers()).toBe(0);
+  });
+
+  it('embers run on the hazard clock: when it stops (leaving), they freeze', () => {
+    const view = createFlamesView(fakeKit());
+    view.build(FLAMES);
+    for (let t = 0; t <= 400; t += 16) view.update(now(['telegraph', t]), frame(t));
+    const live = view.embers();
+    expect(live).toBeGreaterThan(0);
+    // Render time runs on; the hazard clock is stopped at 400 with the flame mid-telegraph.
+    for (let t = 416; t <= 3000; t += 16) view.update(now(['telegraph', 400]), frame(t, 400));
+    expect(view.embers()).toBe(live);
   });
 
   it('drives the rig’s pool slots: a firing flame’s slot reaches peak; teardown drops it to 0', () => {

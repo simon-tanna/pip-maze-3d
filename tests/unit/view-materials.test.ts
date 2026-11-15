@@ -149,7 +149,10 @@ describe('view materials follow look', () => {
     look.flame.bedRoughness = 0.11;
     look.flame.gain = 3.3;
     look.flame.glowSize = 2.5;
-    view.update([{ tile: { col: 1, row: 1 }, state: 'on', intoMs: 500 }], { timeMs: 0 });
+    view.update([{ tile: { col: 1, row: 1 }, state: 'on', intoMs: 500 }], {
+      timeMs: 0,
+      levelMs: 0,
+    });
     const flame = named(view.group, 'flame_0');
     if (!flame) throw new Error('no flame_0');
     expect(mat(named(flame, 'bed')).roughness).toBe(0.11);
