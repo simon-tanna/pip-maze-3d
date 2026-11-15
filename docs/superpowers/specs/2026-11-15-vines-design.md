@@ -157,3 +157,13 @@ The key fact for all three: every corridor is exactly one tile (`TILE_SIZE` = 2 
 - The `BARK` hex values: checked by eye and by the pixel test for reading as wood.
 - The default chances that hit the 15–25 target.
 - Whether the view lives in `decor.ts` or `vines.ts`.
+
+## Revisions after plan validation (2026-11-15, the human's choices)
+
+- **Density** is measured as a mean of 15–25 spans across the test levels (seeds 42, 1, 7, 123, 999; levels 0–1), with each level between 12 and 28. One chance value can't hold every level inside 15–25.
+- **Respawn**: any hero jump of more than one tile (a respawn or a level start) snaps nearby spans straight to faded. Spans may still cover the start zone.
+- **Sway**: everything sways, bark included. The weight is the depth below the cap, so anchors stay put. This replaces "lianas stay still" and the baked per-vertex sway weight.
+- **Greens**: leaves use `MOSS_LIGHT`, and drips and inner tendrils use `MOSS`.
+- **Bark**: one `BARK` key, a weathered grey-brown (`#6f6555`) kept more than 30 sRGB units from every stone, sand and hero brown. `BARK_DARK` is dropped.
+- **Curtain frame**: origin at the top of the south face's edge (ticket 18's vine frame), hanging down.
+- **Performance**: frame time is recorded before and after, a soft gate, as in the M1 spec.
