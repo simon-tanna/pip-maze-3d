@@ -329,6 +329,7 @@ export function createFlamesView(kit: Gltf, opts: FlamesViewOptions = {}): Flame
 
   const stepEmbers = (flames: readonly FlameStateNow[], dtMs: number) => {
     const rate = look.flame.embersPerSecond / 1000;
+    let changed = false;
     flames.forEach((f, k) => {
       const world = parts[k]?.world;
       if (!world) return;
@@ -337,19 +338,25 @@ export function createFlamesView(kit: Gltf, opts: FlamesViewOptions = {}): Flame
         return;
       }
       let debt = (emberDebt[k] ?? 0) + rate * dtMs;
-      for (; debt >= 1; debt -= 1) spawnEmber(world);
+      for (; debt >= 1; debt -= 1) {
+        spawnEmber(world);
+        changed = true;
+      }
       emberDebt[k] = debt;
     });
     const dt = dtMs / 1000;
-    for (let i = 0; i < EMBER_CAPACITY; i++) {
+    for (let i = 0; i < EMBER_CAPACITY && dtMs > 0; i++) {
       const life = emberLife[i] ?? 1;
       if (life >= 1) continue;
+      changed = true;
       emberLife[i] = Math.min(1, life + dtMs / (emberSpan[i] ?? 1));
       for (let c = 0; c < 3; c++) {
         const j = i * 3 + c;
         emberPos[j] = (emberPos[j] ?? 0) + (emberVel[j] ?? 0) * dt;
       }
     }
+    // Nothing live and nothing spawned (or the clock stopped): the GPU copy is current.
+    if (!changed) return;
     emberGeometry.getAttribute('position').needsUpdate = true;
     emberGeometry.getAttribute('aLife').needsUpdate = true;
   };

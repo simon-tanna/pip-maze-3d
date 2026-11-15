@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { BoxGeometry, MeshStandardMaterial, PlaneGeometry, Scene } from 'three';
-import type { Mesh, MeshStandardMaterial as Std, Object3D, ShaderMaterial } from 'three';
+import type {
+  BufferAttribute,
+  Mesh,
+  MeshStandardMaterial as Std,
+  Object3D,
+  Points,
+  ShaderMaterial,
+} from 'three';
 import type { Gltf } from '@assets/models';
 import type { FlameState } from '@core/hazards';
 import { HAZARD_TIMING } from '@core/hazards';
@@ -137,6 +144,23 @@ describe('flames view (preset D)', () => {
     // Render time runs on; the hazard clock is stopped at 400 with the flame mid-telegraph.
     for (let t = 416; t <= 3000; t += 16) view.update(now(['telegraph', 400]), frame(t, 400));
     expect(view.embers()).toBe(live);
+  });
+
+  it('uploads the ember buffers only while embers live', () => {
+    const view = createFlamesView(fakeKit());
+    view.build(FLAMES);
+    const embers = named(view.group, 'embers') as unknown as Points;
+    const versions = () =>
+      ['position', 'aLife']
+        .map((a) => embers.geometry.getAttribute(a) as BufferAttribute)
+        .map((b) => b.version);
+    view.update(now(['off', 3000]), frame(0));
+    const idle = versions();
+    for (let t = 16; t <= 320; t += 16) view.update(now(['off', 3000 + t]), frame(t));
+    expect(versions()).toEqual(idle);
+    view.update(now(['telegraph', 100]), frame(400));
+    view.update(now(['telegraph', 116]), frame(416));
+    expect(versions()[0]).toBeGreaterThan(idle[0] ?? 0);
   });
 
   it('drives the rig’s pool slots: a firing flame’s slot reaches peak; teardown drops it to 0', () => {
