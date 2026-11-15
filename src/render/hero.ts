@@ -15,6 +15,12 @@
  *   the bob and squash: code adds no procedural squash.
  * - A soft `INK` blob shadow sits under the feet, and every Pip material carries a `CREAM`
  *   fresnel rim (emissive, below the bloom threshold).
+ * - Death (ticket 15, v2 `hero.die` / `respawn` / `setInvulnerable`), timed from the sim's
+ *   `heroDiedAt()` and `DEATH_TIMING`, never by the view: a `CREAM` emissive hit flash,
+ *   a knockback opposite the facing, a collapse that ends exactly at `gone`, then the
+ *   respawn pop from `gone`. Through grace the hero's meshes (never a node with a light
+ *   under it) toggle every `flickerMs`; under reduced motion the rim holds at `graceRim`
+ *   instead. The pose is a function of sim time alone, so it freezes, pauses and replays.
  */
 import {
   AnimationClip,
@@ -37,6 +43,9 @@ import type { Character } from '@assets/models';
 import type { Dir } from '@core/grid-input';
 import type { WorldXZ } from '@core/grid';
 import { STEP_MS } from '@core/step';
+import { clamp01, ease } from '@core/ease';
+import { DIR_DELTA } from '@core/grid-input';
+import { DEATH_TIMING } from '@game/sim';
 import type { Sim } from '@game/sim';
 import { look } from './look';
 import { color } from './palette';
@@ -77,6 +86,8 @@ export interface HeroFrame {
   moving: boolean;
   /** From a kill until the respawn (`DEATH_TIMING.gone`): the clips freeze. */
   fallen: boolean;
+  /** Sim time of this level's latest kill (`sim.heroDiedAt()`), ms; null or absent: none. */
+  diedAtMs?: number | null;
 }
 
 /** The hero frame at `alpha`, read from the simulation (`main.ts` draws exactly this). */
@@ -87,7 +98,63 @@ export function heroFrame(sim: Sim, alpha: number): HeroFrame {
     timeMs: sim.timeAt(alpha),
     moving: sim.heroMoving(),
     fallen: sim.heroFallen(),
+    diedAtMs: sim.heroDiedAt(),
   };
+}
+
+/** The death sequence's pose (ticket 15), for tests and the dev `__game` handle. */
+export interface HeroFx {
+  /** CREAM hit-flash emissive (0 outside the flash). */
+  flash: number;
+  /** Knockback distance from the death spot, m. */
+  knockback: number;
+  /** Pip's scale: x is also z (the collapse narrows, the pop grows). */
+  scale: { x: number; y: number };
+  /** The hero's meshes are drawn (false while gone, and on the grace flicker's off beats). */
+  visible: boolean;
+  /** The rim strength drawn (boosted through grace under reduced motion). */
+  rim: number;
+}
+
+/** The hero's offset `m` metres opposite `facing` (the knockback direction). */
+export function knockback(facing: Dir, m: number): WorldXZ {
+  const { dCol, dRow } = DIR_DELTA[facing];
+  return { x: -dCol * m, z: -dRow * m };
+}
+
+/** The death-sequence pose at `t` ms after the kill (null: no kill this level). */
+function deathPose(t: number | null, fallen: boolean, reduced: boolean, out: HeroFx): HeroFx {
+  const h = look.hero;
+  out.flash = 0;
+  out.knockback = 0;
+  out.scale.x = 1;
+  out.scale.y = 1;
+  out.visible = true;
+  out.rim = h.rimStrength;
+  if (t === null || t < 0) return out;
+  if (t < h.hitFlashMs) out.flash = h.hitFlash;
+  const { gone, graceMs } = DEATH_TIMING;
+  if (fallen) {
+    out.knockback =
+      h.knockbackM * ease.cubicOut(h.knockbackMs > 0 ? clamp01(t / h.knockbackMs) : 1);
+    const u = ease.cubicIn(clamp01((t - (gone - h.collapseMs)) / h.collapseMs));
+    out.scale.x = 1 - u;
+    out.scale.y = 1 + (h.collapseStretch - 1) * u;
+    out.visible = out.scale.x > 0;
+    return out;
+  }
+  const since = t - gone; // respawned: the pop and grace run from `gone`
+  if (since < 0) return out;
+  if (since < h.popMs) {
+    const s = h.popFrom + (1 - h.popFrom) * ease.backOut(since / h.popMs);
+    out.scale.x = s;
+    out.scale.y = s;
+  }
+  if (since < graceMs) {
+    if (reduced) out.rim = h.graceRim;
+    else out.visible = Math.floor(since / h.flickerMs) % 2 === 0;
+  }
+  return out;
 }
 
 export type HeroClip = 'idle' | 'walk';
@@ -105,6 +172,13 @@ export interface HeroView {
   readonly object: Group;
   update(frame: HeroFrame): void;
   anim(): HeroAnim;
+  /** The death sequence's pose on the last update. */
+  fx(): HeroFx;
+}
+
+export interface HeroViewOptions {
+  /** `prefers-reduced-motion`: grace holds a steady rim instead of flickering. */
+  reducedMotion?(): boolean;
 }
 
 /** The fresnel rim's uniforms, shared by every Pip material and driven from `look`. */
@@ -112,6 +186,8 @@ export interface RimUniforms {
   rimColor: { value: ReturnType<typeof color> };
   rimStrength: { value: number };
   rimPower: { value: number };
+  /** The death hit flash: CREAM emissive over the whole body, not just the rim. */
+  hitFlash: { value: number };
 }
 
 /**
@@ -124,14 +200,14 @@ export function addRim(material: MeshStandardMaterial, rim: RimUniforms): void {
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
-        '#include <common>\nuniform vec3 rimColor;\nuniform float rimStrength;\nuniform float rimPower;',
+        '#include <common>\nuniform vec3 rimColor;\nuniform float rimStrength;\nuniform float rimPower;\nuniform float hitFlash;',
       )
       .replace(
         '#include <emissivemap_fragment>',
         [
           '#include <emissivemap_fragment>',
           'float rimFresnel = 1.0 - saturate( dot( normal, normalize( vViewPosition ) ) );',
-          'totalEmissiveRadiance += rimColor * rimStrength * pow( rimFresnel, rimPower );',
+          'totalEmissiveRadiance += rimColor * ( rimStrength * pow( rimFresnel, rimPower ) + hitFlash );',
         ].join('\n'),
       );
   };
@@ -167,7 +243,8 @@ function blobTexture(size = 64) {
   return { texture, paint };
 }
 
-export function createHeroView(character: Character): HeroView {
+export function createHeroView(character: Character, opts: HeroViewOptions = {}): HeroView {
+  const reducedMotion = opts.reducedMotion ?? (() => false);
   const object = new Group();
   object.name = 'hero';
 
@@ -177,11 +254,15 @@ export function createHeroView(character: Character): HeroView {
     rimColor: { value: color('CREAM') },
     rimStrength: { value: look.hero.rimStrength },
     rimPower: { value: look.hero.rimPower },
+    hitFlash: { value: 0 },
   };
   const materials: MeshStandardMaterial[] = [];
+  /** What the grace flicker toggles: meshes only, never a node that could hold a light. */
+  const meshes: Mesh[] = [];
   pip.traverse((o) => {
     const mesh = o as Mesh;
     if (!mesh.isMesh) return;
+    meshes.push(mesh);
     mesh.castShadow = true;
     // Clone: the parse is cached and shared; the rim patch belongs to this view.
     const own = (mesh.material as Material).clone() as MeshStandardMaterial;
@@ -205,6 +286,8 @@ export function createHeroView(character: Character): HeroView {
   blob.rotation.x = -Math.PI / 2;
   blob.position.y = BLOB_LIFT;
   object.add(blob, pip);
+  meshes.push(blob);
+  const fx: HeroFx = { flash: 0, knockback: 0, scale: { x: 1, y: 1 }, visible: true, rim: 0 };
 
   const mixer = new AnimationMixer(pip);
   const action = (name: HeroClip): AnimationAction => {
@@ -237,16 +320,27 @@ export function createHeroView(character: Character): HeroView {
 
   return {
     object,
-    update({ position, facing, timeMs, moving, fallen }) {
+    update({ position, facing, timeMs, moving, fallen, diedAtMs = null }) {
       const h = look.hero;
+      const pose = deathPose(
+        diedAtMs === null ? null : timeMs - diedAtMs,
+        fallen,
+        reducedMotion(),
+        fx,
+      );
       for (const m of materials) m.roughness = h.roughness;
-      rim.rimStrength.value = h.rimStrength;
+      rim.rimStrength.value = pose.rim;
       rim.rimPower.value = h.rimPower;
+      rim.hitFlash.value = pose.flash;
       blob.scale.setScalar(2 * h.blobRadius);
       blob.material.opacity = h.blobOpacity;
       blobAlpha.paint(h.blobFalloff);
+      pip.scale.set(pose.scale.x, pose.scale.y, pose.scale.x);
+      for (const m of meshes) m.visible = pose.visible;
 
-      object.position.set(position.x, 0, position.z);
+      // Knocked back along the facing it died with (`facing` holds it until `gone`).
+      const push = knockback(facing, pose.knockback);
+      object.position.set(position.x + push.x, 0, position.z + push.z);
       if (target === null) {
         turn = { from: facingYaw(facing), delta: 0, startMs: timeMs }; // first frame: no turn
       } else if (facing !== target) {
@@ -285,5 +379,6 @@ export function createHeroView(character: Character): HeroView {
         walkPhase: phase - Math.floor(phase),
       };
     },
+    fx: () => ({ ...fx, scale: { ...fx.scale } }),
   };
 }

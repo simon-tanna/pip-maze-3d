@@ -9,6 +9,7 @@ const BACK = 1.70158;
 
 export const ease = {
   linear: (t: number) => t,
+  cubicIn: (t: number) => t ** 3,
   cubicOut: (t: number) => 1 - (1 - t) ** 3,
   cubicInOut: (t: number) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2),
   /** Phaser `Back.easeOut`, overshoot 1.70158. */

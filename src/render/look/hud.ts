@@ -16,6 +16,9 @@ export const hud = section(
     toastInMs: 180,
     toastHoldMs: 900,
     toastOutMs: 300,
+    /** Damage flash on death: BLOOD at this opacity, fading to 0 over ms (linear). */
+    damageFlashAlpha: 0.22,
+    damageFlashMs: 300,
   },
   {
     flyMs: [0, 1500, 10],
@@ -26,5 +29,7 @@ export const hud = section(
     toastInMs: [0, 1000, 10],
     toastHoldMs: [0, 3000, 10],
     toastOutMs: [0, 1000, 10],
+    damageFlashAlpha: [0, 1, 0.01],
+    damageFlashMs: [0, 1000, 10],
   },
 );

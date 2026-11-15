@@ -99,12 +99,15 @@ function setup({
     }
     return sim.snapshot().simMs - t0;
   };
-  /** Walk `n` tiles `dir` and stop. */
+  /** Walk `n` tiles `dir` and stop (a key's hit-stop on the way only delays it). */
   const walk = (dir: 'east' | 'west', n: number) => {
+    let steps = 0;
+    const count = () => steps++;
+    sim.on('step', count);
     sim.input.press(dir);
-    tick(Math.ceil((n * 120) / TICK_MS));
+    while (steps < n) tick();
     sim.input.release(dir);
-    tick(1);
+    while (sim.snapshot().moving) tick();
   };
   const flush = () => new Promise((r) => setTimeout(r, 0));
   return {

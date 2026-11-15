@@ -168,7 +168,11 @@ export function routeMoves(route: Route, upTo: Leg['to'] = 'chest'): Move[] {
   return route.legs.slice(0, end + 1).flatMap((l) => l.moves);
 }
 
-export type WalkOp = { op: 'press' | 'release'; dir: Dir } | { op: 'advance'; ms: number };
+export type WalkOp =
+  | { op: 'press' | 'release'; dir: Dir }
+  | { op: 'advance'; ms: number }
+  /** Run updates until any hit-stop (a key pickup's skipped ticks) is over. */
+  | { op: 'settle' };
 
 /** v2's 120 ms step (`STEP_MS` in src/core/step.ts). */
 const STEP_MS = 120;
@@ -177,10 +181,12 @@ const STEP_MS = 120;
  * The press/advance plan that walks `moves` exactly, from an idle hero on the paused sim.
  * Hold-to-walk: the press starts step 1 at once; steps chain every 120 ms, so after
  * `120 (n − 1) + 1` ms step n has started and step n + 1 hasn't (a tick is 16.7 ms).
- * Release, then 120 ms more lands it. Two renders per run, however long.
+ * Release, then 120 ms more lands it. Two renders per run, however long. Each move starts
+ * with `settle`: a leg that ended on a key leaves a hit-stop, and a press inside it waits.
  */
 export function walkOps(moves: readonly Move[]): WalkOp[] {
   return moves.flatMap(([dir, n]): WalkOp[] => [
+    { op: 'settle' },
     { op: 'press', dir },
     { op: 'advance', ms: STEP_MS * (n - 1) + 1 },
     { op: 'release', dir },

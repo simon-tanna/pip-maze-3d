@@ -21,6 +21,9 @@
  * - Death (`DEATH_TIMING`): at t = 0 the step is cut, the hero takes the start tile facing
  *   south and drops its most recent key; at `gone` it respawns with `graceMs` of grace;
  *   at `unlock` input moves it again (held or buffered keys fire). Coins are untouched.
+ * - Hit-stop (`HIT_STOP`): a key pickup skips the next `hitStopTicks()` updates whole, so
+ *   the sim clock, the hazard clock, the step, the death timers and input all hold, and the
+ *   views (which draw sim time) freeze with them. None on death.
  *
  * Pure game logic: no three.js, no DOM.
  */
@@ -53,6 +56,13 @@ export const DEATH_TIMING = {
   graceMs: 1000,
 } as const;
 
+/** Hit-stop on a key pickup, in skipped update ticks (v2 `hitStop(scene, 60)`; 20 ms reduced). */
+export const HIT_STOP = {
+  keyTicks: 4,
+  /** Under reduced motion. */
+  reducedTicks: 1,
+} as const;
+
 /** Float slack for "at or after" threshold checks on tick-derived times. */
 const TIME_EPSILON = 1e-6;
 
@@ -75,6 +85,10 @@ export interface SimSnapshot {
   dying: boolean;
   /** Hazards ignore the hero (`DEATH_TIMING.graceMs` from the respawn). */
   grace: boolean;
+  /** Inside a hit-stop: the next update is skipped (and a key press waits for it to end). */
+  hitStop: boolean;
+  /** Updates skipped by hit-stops since boot (e2e reads it). */
+  skippedTicks: number;
 }
 
 /** What outlives a level: the in-memory coin total (lost on reload). */
@@ -162,6 +176,11 @@ export interface Sim {
   heroMoving(): boolean;
   /** From a kill until the respawn at `DEATH_TIMING.gone` (the hero is not on the board). */
   heroFallen(): boolean;
+  /**
+   * Sim time of this level's latest kill, ms (null before one). The views time the death
+   * sequence, the respawn pop and the grace flicker from it and `DEATH_TIMING`.
+   */
+  heroDiedAt(): number | null;
   on<K extends keyof SimEvents>(type: K, listener: (event: SimEvents[K]) => void): void;
   /**
    * Swap in the next level (state machine `building`): the hero goes to its start tile,
@@ -209,6 +228,8 @@ export interface SimOptions {
   flames?: readonly Flame[];
   /** The level's blades (default: none). */
   blades?: readonly Blade[];
+  /** Updates a key pickup skips (default `HIT_STOP.keyTicks`; main caps it under reduced motion). */
+  hitStopTicks?: () => number;
 }
 
 interface Death {
@@ -227,8 +248,12 @@ export function createSim({
   session = createSession(),
   flames: initialFlames = [],
   blades: initialBlades = [],
+  hitStopTicks = () => HIT_STOP.keyTicks,
 }: SimOptions): Sim {
   let ticks = 0;
+  /** Updates left to skip in the current hit-stop, and the running total skipped. */
+  let frozen = 0;
+  let skippedTicks = 0;
   let current = map;
   const now = () => (ticks * 1000) / TICKS_PER_SECOND;
   let levelStartMs: number | null = null;
@@ -256,6 +281,7 @@ export function createSim({
   const flamesNow: FlameNow[] = [];
   let blades: readonly Blade[] = initialBlades;
   let death: Death | null = null;
+  let diedAtMs: number | null = null;
   /** Grace lasts until this sim time (ms). */
   let graceUntilMs = -Infinity;
   const listeners: { [K in keyof SimEvents]: ((e: SimEvents[K]) => void)[] } = {
@@ -293,6 +319,7 @@ export function createSim({
     tile = startTile(current);
     facing = 'south';
     death = { atMs: now(), spot, facing: diedFacing, respawned: false };
+    diedAtMs = death.atMs;
     emit('died', { ...where, hazard });
     self.dropKey();
   };
@@ -354,6 +381,7 @@ export function createSim({
           emit('coin', { ...where, total: session.coins });
           break;
         case 'key':
+          frozen = Math.max(frozen, hitStopTicks());
           emit('key', { ...where, index: hit.index, keys: hit.keys });
           break;
         case 'keyRevealed':
@@ -373,7 +401,7 @@ export function createSim({
   };
 
   const move = (dir: Dir): boolean => {
-    if (machine.state !== 'playing' || step || death) return false;
+    if (machine.state !== 'playing' || step || death || frozen > 0) return false;
     const { dCol, dRow } = DIR_DELTA[dir];
     const to = { col: tile.col + dCol, row: tile.row + dRow };
     if (!walkable(to.col, to.row)) return false; // no move, no turn
@@ -391,6 +419,11 @@ export function createSim({
     input,
     ignoreHazards: false,
     update() {
+      if (frozen > 0) {
+        frozen--;
+        skippedTicks++;
+        return;
+      }
       ticks++;
       if (updateDeath()) {
         updateFlames();
@@ -427,6 +460,8 @@ export function createSim({
         coins: session.coins,
         dying: death !== null,
         grace: inGrace(),
+        hitStop: frozen > 0,
+        skippedTicks,
       };
     },
     timeAt(alpha) {
@@ -450,6 +485,7 @@ export function createSim({
     heroFallen() {
       return death !== null && !death.respawned;
     },
+    heroDiedAt: () => diedAtMs,
     on(type, listener) {
       listeners[type].push(listener);
     },
@@ -466,7 +502,9 @@ export function createSim({
       blades = level.blades ?? [];
       resetFlames();
       death = null;
+      diedAtMs = null;
       graceUntilMs = -Infinity;
+      frozen = 0;
       input.clear();
     },
     flames: () => {

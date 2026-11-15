@@ -40,6 +40,7 @@ function playing(pickups: typeof ONE_KEY | typeof TWO_KEYS, session = createSess
   /** Walk east `n` tiles, tapping each step and running ticks until it lands. */
   const east = (n: number) => {
     for (let i = 0; i < n; i++) {
+      while (sim.snapshot().hitStop) sim.update(); // a key's hit-stop: a tap would wait
       sim.input.press('east');
       sim.input.release('east');
       while (sim.snapshot().moving) sim.update();
