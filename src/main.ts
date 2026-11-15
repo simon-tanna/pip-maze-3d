@@ -3,6 +3,7 @@ import type { Camera, Light } from 'three';
 import type { WorldXZ } from '@core/grid';
 import { loadCharacter, loadGltf } from '@assets/models';
 import { planChamber } from '@core/chamber-plan';
+import { planDecor } from '@core/decor';
 import { mazeBounds } from '@core/grid';
 import { resolveRun } from '@core/run-seed';
 import type { RunStart } from '@core/run-seed';
@@ -16,6 +17,7 @@ import { createBladesView } from '@render/blades';
 import { createCameraRig } from '@render/camera-rig';
 import { createChamberView } from '@render/chamber';
 import { CHAMBER_KIT } from '@render/chamber-kit';
+import { createDecorView, DECOR_MODEL } from '@render/decor';
 import { createFlamesView, FLAME_MODEL } from '@render/flames';
 import { createFrameStats } from '@render/frame-stats';
 import { createFx } from '@render/fx';
@@ -152,12 +154,13 @@ async function boot(shell: Shell): Promise<void> {
   const run = resolveRun(new URLSearchParams(location.search), drawSeed);
   for (const warning of run.warnings) console.warn(`[run] ${warning}`);
   logRun(run);
-  const [kit, bladeKit, flameKit, pip, gold] = await Promise.all([
+  const [kit, bladeKit, flameKit, pip, gold, props] = await Promise.all([
     loadGltf(CHAMBER_KIT),
     loadGltf(BLADE_MODEL),
     loadGltf(FLAME_MODEL),
     loadCharacter(HERO_MODEL),
     loadGltf(PICKUPS_MODEL),
+    loadGltf(DECOR_MODEL),
   ]);
   screens.hide(); // the iris stays shut until the first chamber is built
 
@@ -172,6 +175,8 @@ async function boot(shell: Shell): Promise<void> {
   clock.now = () => sim.timeAt(0);
   const chamber = createChamberView(kit);
   scene.add(chamber.group);
+  const decor = createDecorView(props);
+  scene.add(decor.group);
   const pickups = createPickupsView(gold, { reducedMotion: () => reducedMotion.matches });
   scene.add(pickups.group);
   const flames = createFlamesView(flameKit, { truth: import.meta.env.DEV, pools: rig.pools });
@@ -221,6 +226,7 @@ async function boot(shell: Shell): Promise<void> {
       rig.fitShadowTo(mazeBounds(cols, level.map.length)); // the map, not the padding
     },
   });
+  levels.add({ build: ({ level, seed }) => decor.build(planDecor(level, seed)) }); // counts only
   levels.add({
     build: ({ level, seed }) => pickups.build(level, seed),
     teardown: () => pickups.teardown(),
@@ -346,6 +352,7 @@ async function boot(shell: Shell): Promise<void> {
           return director.level;
         },
         chamber,
+        decor: decor.group,
         pickups: pickups.group,
         pickupsView: pickups,
         flames,
