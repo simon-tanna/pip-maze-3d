@@ -11,6 +11,8 @@
  * - `keyAppeared(index, at)` (reveal and `keyLost` respawn) grows the key from
  *   `keyAppearFrom` over `keyAppearMs` (Back-out).
  * - Under reduced motion: no bob, no turn and no shake (`motion()` and `shake()` report it).
+ *   That is all the spec's Reduced motion list (exhaustive) asks of pickups: the chest's
+ *   squash, lid swing and burst, and the key fade-in, still play.
  *
  * Everything runs on the simulation time it is given, so pause and advance replay it.
  * Glow is GOLD_LIGHT emissive + bloom and an additive floor decal under each pickup: no
