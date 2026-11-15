@@ -23,7 +23,10 @@ test('scripted presses walk level 0’s route to the chest', async ({ game }) =>
 test('level 1’s route reaches its chest', async ({ game }) => {
   await game.boot(LEVEL_1);
   await game.hazardsOff(true); // its coin leg crosses three flames
-  expect((await game.walk(routeMoves(LEVEL_1))).tile).toEqual(LEVEL_1.legs[2]?.tile);
+  // Only the last step renders (same ticks): a frame per step of this long route outgrew
+  // the 60 s timeout under parallel SwiftShader workers (as acceptance.spec.ts did in 09).
+  const end = await game.walk(routeMoves(LEVEL_1), { frames: 'last' });
+  expect(end.tile).toEqual(LEVEL_1.legs[2]?.tile);
 });
 
 test('a press into a wall leaves tile and facing unchanged', async ({ game }) => {

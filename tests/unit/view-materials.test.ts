@@ -16,7 +16,7 @@ import { createFlamesView, FLAME_MODEL } from '@render/flames';
 import { createHeroView, HERO_MODEL } from '@render/hero';
 import { look } from '@render/look';
 import { color } from '@render/palette';
-import { createPickupsView } from '@render/pickups';
+import { createPickupsView, PICKUPS_MODEL } from '@render/pickups';
 import { parseModel } from './support/glb';
 
 /** Material feel numbers live in `look` (and so in the dev panel): views follow them live. */
@@ -28,8 +28,10 @@ const mat = (o: Object3D | undefined) => {
 const named = (root: Object3D, name: string) => root.getObjectByName(name);
 
 let pipGltf: GLTF;
+let pickupsGltf: GLTF;
 beforeAll(async () => {
   pipGltf = await parseModel(HERO_MODEL);
+  pickupsGltf = await parseModel(PICKUPS_MODEL);
 });
 
 const saved = structuredClone({
@@ -157,18 +159,17 @@ describe('view materials follow look', () => {
   });
 
   it('pickups: gold metalness and roughness', () => {
-    const view = createPickupsView();
-    view.build({
-      coins: [{ col: 1, row: 1 }],
-      key: { col: 2, row: 1 },
-      key2: null,
-      exitCol: 3,
-      exitRow: 1,
+    const view = createPickupsView(gltfKit(pickupsGltf, PICKUPS_MODEL), {
+      reducedMotion: () => false,
     });
+    view.build(
+      { coins: [{ col: 1, row: 1 }], key: { col: 2, row: 1 }, key2: null, exitCol: 3, exitRow: 1 },
+      0,
+    );
     look.pickups.goldMetalness = 0.25;
     look.pickups.goldRoughness = 0.15;
     look.pickups.chestRoughness = 0.65;
-    view.update({ coinVisible: () => true, keyVisible: () => true });
+    view.update({ coinVisible: () => true, keyVisible: () => true }, 0);
     expect(mat(named(view.group, 'coin_0'))).toMatchObject({ metalness: 0.25, roughness: 0.15 });
     expect(mat(named(view.group, 'chest'))).toMatchObject({ metalness: 0.25, roughness: 0.65 });
   });

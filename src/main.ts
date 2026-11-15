@@ -21,7 +21,7 @@ import { createFrameStats } from '@render/frame-stats';
 import { createHeroView, HERO_MODEL, heroFrame } from '@render/hero';
 import { createLevelViews } from '@render/level-views';
 import { createLightRig, createPaletteEnvironment } from '@render/lights';
-import { createPickupsView } from '@render/pickups';
+import { createPickupsView, PICKUPS_MODEL } from '@render/pickups';
 import { look } from '@render/look';
 import { LIGHT, P, color } from '@render/palette';
 import { createRenderer } from '@render/renderer';
@@ -150,11 +150,12 @@ async function boot(shell: Shell): Promise<void> {
   const run = resolveRun(new URLSearchParams(location.search), drawSeed);
   for (const warning of run.warnings) console.warn(`[run] ${warning}`);
   logRun(run);
-  const [kit, bladeKit, flameKit, pip] = await Promise.all([
+  const [kit, bladeKit, flameKit, pip, gold] = await Promise.all([
     loadGltf(CHAMBER_KIT),
     loadGltf(BLADE_MODEL),
     loadGltf(FLAME_MODEL),
     loadCharacter(HERO_MODEL),
+    loadGltf(PICKUPS_MODEL),
   ]);
   screens.hide(); // the iris stays shut until the first chamber is built
 
@@ -164,7 +165,7 @@ async function boot(shell: Shell): Promise<void> {
   clock.now = () => sim.timeAt(0);
   const chamber = createChamberView(kit);
   scene.add(chamber.group);
-  const pickups = createPickupsView();
+  const pickups = createPickupsView(gold, { reducedMotion: () => reducedMotion.matches });
   scene.add(pickups.group);
   const flames = createFlamesView(flameKit, { truth: import.meta.env.DEV, pools: rig.pools });
   scene.add(flames.group);
@@ -187,7 +188,10 @@ async function boot(shell: Shell): Promise<void> {
   sim.on('key', (e) => hud.key(e));
   sim.on('keyLost', () => hud.keyLost());
   sim.on('chestLocked', () => hud.toast('Find the key first!'));
-  sim.on('chestOpened', () => pickups.openChest());
+  sim.on('chestOpened', () => pickups.openChest(clock.now()));
+  // A revealed key 2, or a key back on its tile after a death, fades in.
+  sim.on('keyRevealed', (e) => pickups.keyAppeared(e.index, clock.now()));
+  sim.on('keyLost', (e) => pickups.keyAppeared(e.index, clock.now()));
   // The camera holds on the death spot (`heroPosition`), then cuts to the respawn.
   sim.on('respawned', () => cameraRig.resetLag());
 
@@ -200,7 +204,10 @@ async function boot(shell: Shell): Promise<void> {
       rig.fitShadowTo(mazeBounds(cols, level.map.length)); // the map, not the padding
     },
   });
-  levels.add({ build: ({ level }) => pickups.build(level), teardown: pickups.teardown });
+  levels.add({
+    build: ({ level, seed }) => pickups.build(level, seed),
+    teardown: () => pickups.teardown(),
+  });
   levels.add({ build: () => flames.build(sim.flames()), teardown: () => flames.teardown() });
   levels.add({ build: () => blades.build(sim.blades()), teardown: () => blades.teardown() });
   levels.add({
@@ -213,10 +220,10 @@ async function boot(shell: Shell): Promise<void> {
     const h = heroFrame(sim, alpha);
     const { timeMs } = h;
     hero.update(h);
-    cameraRig.update(h.position, h.facing, timeMs);
+    cameraRig.update(h.position, h.facing, timeMs, pickups.shake(timeMs));
     scene.environmentIntensity = look.lights.envIntensity;
     chamber.update();
-    pickups.update(sim);
+    pickups.update(sim, timeMs);
     flames.update(sim.flames(), { timeMs, hero: h.position }); // before the rig: the bench wins
     blades.update(sim.blades());
     for (const f of devFrame) f();
@@ -238,9 +245,15 @@ async function boot(shell: Shell): Promise<void> {
       // Every program, with the full, fixed rig and every view in the scene, once.
       // Views and camera are synced but nothing is drawn: a render here would compile
       // every program synchronously before compileAsync got the chance.
+      // Compiled against the composer's target, as the RenderPass draws (linear, no tone
+      // mapping): a canvas-variant compile would leave anything off-screen on the first
+      // frame (level 1's coins and keys) to compile mid-play.
       precompile() {
         sync(0);
+        const canvas = renderer.getRenderTarget();
+        renderer.setRenderTarget(view.composer.readBuffer);
         compiled = renderer.compileAsync(scene, camera).then(() => undefined);
+        renderer.setRenderTarget(canvas);
         return compiled;
       },
     },
@@ -308,6 +321,7 @@ async function boot(shell: Shell): Promise<void> {
         },
         chamber,
         pickups: pickups.group,
+        pickupsView: pickups,
         flames,
         blades,
         bladeZone: zone,
