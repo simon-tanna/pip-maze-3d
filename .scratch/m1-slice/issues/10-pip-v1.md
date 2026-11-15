@@ -43,4 +43,5 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
   - The contract check covers exactly the exported materials.
   - Pip's clips unfreeze at respawn rather than at input unlock.
   - The blob shadow filters linearly.
-- 2026-11-15: Resolved.
+
+  Resolved.
