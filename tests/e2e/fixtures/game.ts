@@ -104,7 +104,9 @@ function createDriver(page: Page): GameDriver {
         ops.map((op: WalkOp, i) =>
           op.op === 'advance'
             ? ['advance', op.ms, { render: frames === 'every' || i === last }]
-            : [op.op, op.dir],
+            : op.op === 'settle'
+              ? ['settle']
+              : [op.op, op.dir],
         ),
       );
     },

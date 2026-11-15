@@ -9,9 +9,16 @@ import { DIR_DELTA } from '@core/grid-input';
 import { generateLevel, levelSeed } from '@core/generator';
 import { startTile } from '@core/level';
 import { createFixedLoop } from '@game/loop';
+import type { FixedLoop } from '@game/loop';
 import { createSim } from '@game/sim';
+import type { Sim } from '@game/sim';
 import { createGameState } from '@game/state';
 import { BASE_SEED, LEVEL_0, LEVEL_1, ROUTES, walkOps } from '../e2e/fixtures/routes';
+
+/** The `settle` op, as `__game.sim.settle()` runs it: updates until any hit-stop is over. */
+function settle(sim: Sim, loop: FixedLoop) {
+  while (sim.snapshot().hitStop) loop.step(0.5);
+}
 
 const key = (t: { col: number; row: number }) => `${t.col},${t.row}`;
 
@@ -46,6 +53,7 @@ describe('shared e2e routes', () => {
         const from = visited.length;
         for (const op of walkOps(leg.moves)) {
           if (op.op === 'advance') loop.step(op.ms);
+          else if (op.op === 'settle') settle(sim, loop);
           else sim.input[op.op](op.dir);
         }
         const steps = visited.slice(from);
@@ -78,6 +86,7 @@ describe('shared e2e routes', () => {
     const detour = LEVEL_0.chestWithoutKey;
     for (const op of walkOps([...coinLeg, ...(detour?.moves ?? [])])) {
       if (op.op === 'advance') loop.step(op.ms);
+      else if (op.op === 'settle') settle(sim, loop);
       else sim.input[op.op](op.dir);
     }
     expect(sim.snapshot()).toMatchObject({

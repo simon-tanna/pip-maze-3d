@@ -1,0 +1,8 @@
+/* The damage flash: a full-screen BLOOD wash whose opacity the script drives. */
+.damage-flash {
+  position: fixed;
+  inset: 0;
+  background: var(--blood);
+  opacity: 0;
+  pointer-events: none;
+}

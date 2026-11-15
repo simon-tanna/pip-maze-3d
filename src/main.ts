@@ -8,7 +8,7 @@ import { resolveRun } from '@core/run-seed';
 import type { RunStart } from '@core/run-seed';
 import { bindKeyboard, bindRestart } from '@game/keyboard';
 import { createFixedLoop } from '@game/loop';
-import { createSession, createSim } from '@game/sim';
+import { createSession, createSim, HIT_STOP } from '@game/sim';
 import { createDirector, createGameState } from '@game/state';
 import type { GameState } from '@game/state';
 import { BLADE_MODEL } from '@render/blade-kit';
@@ -18,6 +18,7 @@ import { createChamberView } from '@render/chamber';
 import { CHAMBER_KIT } from '@render/chamber-kit';
 import { createFlamesView, FLAME_MODEL } from '@render/flames';
 import { createFrameStats } from '@render/frame-stats';
+import { createFx } from '@render/fx';
 import { createHeroView, HERO_MODEL, heroFrame } from '@render/hero';
 import { createLevelViews } from '@render/level-views';
 import { createLightRig, createPaletteEnvironment } from '@render/lights';
@@ -26,6 +27,7 @@ import { look } from '@render/look';
 import { LIGHT, P, color } from '@render/palette';
 import { createRenderer } from '@render/renderer';
 import { createRigGuard } from '@render/rig-guard';
+import { createDamageFlash } from '@ui/damage-flash';
 import { createHud } from '@ui/hud';
 import { createIris } from '@ui/iris';
 import type { Iris } from '@ui/iris';
@@ -161,7 +163,12 @@ async function boot(shell: Shell): Promise<void> {
 
   const session = createSession();
   // No level yet: the director generates level 0 once, on its first `building`.
-  const sim = createSim({ machine, session });
+  const sim = createSim({
+    machine,
+    session,
+    // Hit-stop on a key pickup, capped under reduced motion.
+    hitStopTicks: () => (reducedMotion.matches ? HIT_STOP.reducedTicks : HIT_STOP.keyTicks),
+  });
   clock.now = () => sim.timeAt(0);
   const chamber = createChamberView(kit);
   scene.add(chamber.group);
@@ -171,8 +178,12 @@ async function boot(shell: Shell): Promise<void> {
   scene.add(flames.group);
   const blades = createBladesView(bladeKit, scene.environment);
   scene.add(blades.group);
-  const hero = createHeroView(pip);
+  const hero = createHeroView(pip, { reducedMotion: () => reducedMotion.matches });
   scene.add(hero.object);
+  // Dust, puffs and sparkles on the sim's events, and the death shake.
+  const fx = createFx({ reducedMotion: () => reducedMotion.matches });
+  scene.add(fx.group);
+  fx.listen(sim);
   const cameraRig = createCameraRig(camera);
 
   const hud = createHud({
@@ -188,6 +199,12 @@ async function boot(shell: Shell): Promise<void> {
   sim.on('key', (e) => hud.key(e));
   sim.on('keyLost', () => hud.keyLost());
   sim.on('chestLocked', () => hud.toast('Find the key first!'));
+  const damageFlash = createDamageFlash({
+    root: hudLayer,
+    timing: look.hud,
+    reducedMotion: () => reducedMotion.matches,
+  });
+  sim.on('died', () => damageFlash.hit(clock.now()));
   sim.on('chestOpened', () => pickups.openChest(clock.now()));
   // A revealed key 2, or a key back on its tile after a death, fades in.
   sim.on('keyRevealed', (e) => pickups.keyAppeared(e.index, clock.now()));
@@ -208,6 +225,7 @@ async function boot(shell: Shell): Promise<void> {
     build: ({ level, seed }) => pickups.build(level, seed),
     teardown: () => pickups.teardown(),
   });
+  levels.add({ build: ({ seed }) => fx.build(seed), teardown: () => fx.teardown() });
   levels.add({ build: () => flames.build(sim.flames()), teardown: () => flames.teardown() });
   levels.add({ build: () => blades.build(sim.blades()), teardown: () => blades.teardown() });
   levels.add({
@@ -215,19 +233,27 @@ async function boot(shell: Shell): Promise<void> {
   });
   /** Dev-only per-frame hooks (the blade contact-zone overlay). */
   const devFrame: (() => void)[] = [];
+  /** The camera shake this frame: the chest's and the death's, summed. */
+  const shake = { x: 0, y: 0 };
   /** Bring every view and the camera to `alpha`, without drawing. */
   const sync = (alpha: number) => {
     const h = heroFrame(sim, alpha);
     const { timeMs } = h;
     hero.update(h);
-    cameraRig.update(h.position, h.facing, timeMs, pickups.shake(timeMs));
+    const chestShake = pickups.shake(timeMs);
+    const deathShake = fx.shake(timeMs);
+    shake.x = chestShake.x + deathShake.x;
+    shake.y = chestShake.y + deathShake.y;
+    cameraRig.update(h.position, h.facing, timeMs, shake);
     scene.environmentIntensity = look.lights.envIntensity;
     chamber.update();
     pickups.update(sim, timeMs);
     flames.update(sim.flames(), { timeMs, levelMs: sim.levelAt(alpha), hero: h.position }); // before the rig: the bench wins
     blades.update(sim.blades());
+    fx.update(timeMs);
     for (const f of devFrame) f();
     hud.update(timeMs);
+    damageFlash.update(timeMs);
     iris.update(timeMs);
     rig.update({ hero: hero.object.position, poolsAtPeak: look.bench.poolsAtPeak });
   };
@@ -327,6 +353,8 @@ async function boot(shell: Shell): Promise<void> {
         bladeZone: zone,
         hero: hero.object,
         heroView: hero,
+        fx,
+        damageFlash,
         cameraRig,
         sim: createDevSim(sim, loop, director),
       },

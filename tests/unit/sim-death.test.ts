@@ -48,10 +48,13 @@ function setup(flames: Flame[], { key2 = null as { col: number; row: number } | 
   const tick = (n = 1) => {
     for (let i = 0; i < n; i++) sim.update();
   };
-  /** Tick until the hazard clock reaches `ms`. */
-  const until = (ms: number) => tick(Math.max(0, ticksFor(ms) - ticksFor(sim.snapshot().levelMs)));
-  /** One tile step `dir`, ticked until it lands. */
+  /** Tick until the hazard clock reaches `ms` (a key's hit-stop holds the clock, so count it). */
+  const until = (ms: number) => {
+    for (let n = 0; n < 100_000 && ticksFor(sim.snapshot().levelMs) < ticksFor(ms); n++) tick();
+  };
+  /** One tile step `dir`, ticked until it lands (after any key's hit-stop). */
   const stepTo = (dir: 'east' | 'west' | 'south' | 'north') => {
+    while (sim.snapshot().hitStop) tick();
     sim.input.press(dir);
     sim.input.release(dir);
     while (sim.snapshot().moving) tick();

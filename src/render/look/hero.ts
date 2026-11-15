@@ -20,6 +20,22 @@ export const hero = section(
     blobOpacity: 0.55,
     /** Blob falloff exponent on (1 − r): higher tightens it around the feet. */
     blobFalloff: 1.5,
+    /** Death (ticket 15, v2 `hero.die`): CREAM emissive hit flash, ms and strength. */
+    hitFlashMs: 80,
+    hitFlash: 1.2,
+    /** Knockback opposite the facing, m, over ms (cubic-out); held through the collapse. */
+    knockbackM: 0.25,
+    knockbackMs: 110,
+    /** Collapse to nothing (cubic-in), ending at the sim's `gone`: ms, and the stretch at its end. */
+    collapseMs: 160,
+    collapseStretch: 1.4,
+    /** Respawn pop: from this scale to 1 over ms (Back-out), from `gone`. */
+    popFrom: 0.4,
+    popMs: 260,
+    /** Grace: the hero mesh toggles every this many ms (v2's 80). */
+    flickerMs: 80,
+    /** Grace under reduced motion: a steady rim this strong instead of the flicker. */
+    graceRim: 1,
   },
   {
     turnMs: [0, 300, 5],
@@ -30,5 +46,15 @@ export const hero = section(
     blobRadius: [0.1, 1, 0.01],
     blobOpacity: [0, 1, 0.01],
     blobFalloff: [0.5, 4, 0.1],
+    hitFlashMs: [0, 300, 5],
+    hitFlash: [0, 4, 0.05],
+    knockbackM: [0, 1, 0.01],
+    knockbackMs: [0, 270, 5],
+    collapseMs: [10, 270, 5],
+    collapseStretch: [1, 2, 0.05],
+    popFrom: [0, 1, 0.01],
+    popMs: [0, 600, 10],
+    flickerMs: [20, 300, 5],
+    graceRim: [0, 3, 0.05],
   },
 );

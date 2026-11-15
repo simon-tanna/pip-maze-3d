@@ -9,7 +9,8 @@
  *   so they take the same path as the keyboard (`@game/keyboard` → grid input).
  * - `pause()` stops the rAF-driven advance; `advance(ms)` runs `ceil(ms / tick)` ticks
  *   directly (bypassing the frame clamp), then one render (none with `render: false`).
- *   `resume()` undoes `pause()`.
+ *   `resume()` undoes `pause()`. `settle()` runs updates until a hit-stop is over (e2e
+ *   walks start each move with it, so a press never lands inside a key's frozen ticks).
  * - `hazardsOff(bool)`: hazards ignore the hero, live.
  * - `flames()` / `blades()`: each hazard's tile, phase and current state or angle; `on(type, fn)`: the sim's
  *   events, so e2e can record them tick-exact in the page.
@@ -33,6 +34,8 @@ export interface DevSim {
   pause(): void;
   resume(): void;
   advance(ms: number, opts?: { render?: boolean }): void;
+  /** Run single (unrendered) updates until any hit-stop is over. */
+  settle(): void;
   hazardsOff(off: boolean): void;
   flames(): readonly FlameNow[];
   blades(): readonly BladeNow[];
@@ -59,6 +62,9 @@ export function createDevSim(
       loop.paused = false;
     },
     advance: (ms, opts) => loop.step(ms, opts),
+    settle() {
+      while (sim.snapshot().hitStop) loop.step(0.5, { render: false });
+    },
     hazardsOff(off) {
       sim.ignoreHazards = off;
     },
