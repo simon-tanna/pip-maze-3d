@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Light, Mesh, MeshStandardMaterial, Object3D } from 'three';
-import { gltfNodes } from '@assets/models';
+import { gltfKit } from '@assets/models';
 import type { Gltf } from '@assets/models';
 import { tileToWorld } from '@core/grid';
 import { look } from '@render/look';
@@ -23,7 +23,7 @@ const ALL: PickupsState = { coinVisible: () => true, keyVisible: () => true };
 
 let kit: Gltf;
 beforeAll(async () => {
-  kit = gltfNodes(await parseModel(PICKUPS_MODEL));
+  kit = gltfKit(await parseModel(PICKUPS_MODEL), PICKUPS_MODEL);
 });
 
 const named = (root: Object3D, name: string) => {

@@ -38,8 +38,10 @@ Spec: [Milestone 1, the vertical slice](../spec.md)
     - The view-materials test that tied the drawn capsule to the contact capsule is gone. ADR 0002 already says the hit volume doesn't depend on any mesh.
     - The blockout's vectors are `[x, y, z]` lists, so the colour-literal scan doesn't read them as RGB triples.
     - Pip's look under the torch (the hat reads warm and bright from the 65° camera) is untuned. That's for ticket 11 and the human.
-- 2026-11-15: Merged to `main`. Resolved. Review fixes (`fix/review-09-11`):
+- 2026-11-15: Merged to `main`. Review fixes (`fix/review-09-11`):
   - `export_all.py` picks the profile per asset (`characters/` path or the `export_profile`/`export_clips` scene properties) and exits nonzero after reporting every failure. `assets:export` now fails loudly.
   - The contract check covers exactly the exported materials.
   - Pip's clips unfreeze at respawn rather than at input unlock.
   - The blob shadow filters linearly.
+
+  Resolved.

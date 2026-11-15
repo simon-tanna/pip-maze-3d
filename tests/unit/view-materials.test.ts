@@ -2,7 +2,8 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { LinearFilter, LinearMipmapLinearFilter, ShaderLib } from 'three';
 import type { DataTexture, Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D } from 'three';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
-import { gltfNodes, instantiateCharacter } from '@assets/models';
+import { gltfKit, instantiateCharacter } from '@assets/models';
+import { BLADE_MODEL } from '@render/blade-kit';
 import { createBladesView } from '@render/blades';
 import { createFlamesView } from '@render/flames';
 import { createHeroView, HERO_MODEL } from '@render/hero';
@@ -122,14 +123,17 @@ describe('view materials follow look', () => {
     expect(alpha).toBeCloseTo(1 - r, 2);
   });
 
-  it('blades: lintel stone roughness and steel metalness', () => {
-    const view = createBladesView();
+  it('blades: steel and stone roughness scales, steel reflections', async () => {
+    const gltf = await parseModel(BLADE_MODEL, { skipTextures: true });
+    const view = createBladesView(gltfKit(gltf, BLADE_MODEL));
     view.build([{ tile: { col: 1, row: 1 } }]);
     look.blade.stoneRoughness = 0.42;
-    look.blade.steelMetalness = 0.7;
+    look.blade.steelRoughness = 0.7;
+    look.blade.steelEnvIntensity = 1.5;
     view.update([{ tile: { col: 1, row: 1 }, angle: 0 }]);
-    expect(mat(named(view.group, 'lintel')).roughness).toBe(0.42);
-    expect(mat(named(view.group, 'head')).metalness).toBe(0.7);
+    expect(mat(named(view.group, 'lintel_0')).roughness).toBe(0.42);
+    expect(mat(named(view.group, 'head')).roughness).toBe(0.7);
+    expect(mat(named(view.group, 'haft')).envMapIntensity).toBe(1.5);
   });
 
   it('flames: off and lit roughness', () => {
@@ -153,7 +157,9 @@ describe('view materials follow look', () => {
   });
 
   it('pickups: gold metalness and roughness', () => {
-    const view = createPickupsView(gltfNodes(pickupsGltf), { reducedMotion: () => false });
+    const view = createPickupsView(gltfKit(pickupsGltf, PICKUPS_MODEL), {
+      reducedMotion: () => false,
+    });
     view.build(
       { coins: [{ col: 1, row: 1 }], key: { col: 2, row: 1 }, key2: null, exitCol: 3, exitRow: 1 },
       0,

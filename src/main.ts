@@ -11,6 +11,7 @@ import { createFixedLoop } from '@game/loop';
 import { createSession, createSim } from '@game/sim';
 import { createDirector, createGameState } from '@game/state';
 import type { GameState } from '@game/state';
+import { BLADE_MODEL } from '@render/blade-kit';
 import { createBladesView } from '@render/blades';
 import { createCameraRig } from '@render/camera-rig';
 import { createChamberView } from '@render/chamber';
@@ -149,8 +150,9 @@ async function boot(shell: Shell): Promise<void> {
   const run = resolveRun(new URLSearchParams(location.search), drawSeed);
   for (const warning of run.warnings) console.warn(`[run] ${warning}`);
   logRun(run);
-  const [kit, pip, gold] = await Promise.all([
+  const [kit, bladeKit, pip, gold] = await Promise.all([
     loadGltf(CHAMBER_KIT),
+    loadGltf(BLADE_MODEL),
     loadCharacter(HERO_MODEL),
     loadGltf(PICKUPS_MODEL),
   ]);
@@ -166,7 +168,7 @@ async function boot(shell: Shell): Promise<void> {
   scene.add(pickups.group);
   const flames = createFlamesView({ truth: import.meta.env.DEV });
   scene.add(flames.group);
-  const blades = createBladesView();
+  const blades = createBladesView(bladeKit, scene.environment);
   scene.add(blades.group);
   const hero = createHeroView(pip);
   scene.add(hero.object);

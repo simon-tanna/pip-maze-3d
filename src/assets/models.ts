@@ -59,8 +59,11 @@ export interface Gltf {
   getNode(name: string): GltfNode;
 }
 
-/** A parsed glTF as a kit of named nodes (`loadGltf` without the fetch). */
-export function gltfNodes(gltf: GLTF, name = 'model'): Gltf {
+/**
+ * A parsed glTF as a kit of named nodes (`loadGltf` without the fetch). `name` labels the
+ * errors. Every caller shares the scene's geometries and materials.
+ */
+export function gltfKit(gltf: GLTF, name: string): Gltf {
   const root = gltf.scene;
   return {
     getNode(node) {
@@ -85,5 +88,5 @@ export function gltfNodes(gltf: GLTF, name = 'model'): Gltf {
  * dispose them per level.
  */
 export async function loadGltf(name: string): Promise<Gltf> {
-  return gltfNodes(await parse(name), name);
+  return gltfKit(await parse(name), name);
 }
