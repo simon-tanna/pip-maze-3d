@@ -1,29 +1,19 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { Vector3 } from 'three';
-import type { Box3, BufferGeometry, Mesh, Object3D, Texture } from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import type { Box3, BufferGeometry, Mesh, Object3D } from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { BLADE_SHAPE, HEAD_RING } from '@core/blade';
 import { TILE_SIZE } from '@core/grid';
 import { CHAMBER_KIT, KIT_NODES, LIP_BOTTOM, LIP_REACH, WALL_HEIGHT } from '@render/chamber-kit';
-import { decodePng, pngSize, readGlb, triangles } from './glb';
+import { decodePng, modelBytes, parseModel, pngSize, readGlb, triangles } from './support/glb';
 
-const glb = fileURLToPath(new URL(`../../public/models/${CHAMBER_KIT}.glb`, import.meta.url));
 let root: Object3D;
 
 const ATLAS_PX = 2048;
 const TEXELS_PER_M = 128;
 
 beforeAll(async () => {
-  const bytes = readFileSync(glb);
-  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-  // Node has no image decoder: skip textures here (the atlas tests read the GLB directly).
-  const loader = new GLTFLoader().register(() => ({
-    name: 'skip-textures',
-    loadTexture: () => Promise.resolve(null as unknown as Texture),
-  }));
-  root = (await loader.parseAsync(buffer, '')).scene;
+  // The atlas tests read the textures straight from the GLB (readGlb).
+  root = (await parseModel(CHAMBER_KIT, { skipTextures: true })).scene;
 });
 
 const geometryOf = (name: string): BufferGeometry => {
@@ -138,7 +128,7 @@ describe('sandstone chamber kit', () => {
   });
 
   it('shades every tile piece with one atlas material: base colour, baked AO (ORM) and normal', () => {
-    const { json, textureImage } = readGlb(readFileSync(glb));
+    const { json, textureImage } = readGlb(modelBytes(CHAMBER_KIT));
     const materialOf = (name: string) => {
       const primitives = json.meshes.find((m) => m.name === name)?.primitives ?? [];
       expect(primitives.length, name).toBe(1);
@@ -186,7 +176,7 @@ describe('sandstone chamber kit', () => {
   });
 
   it('bakes the floor as the darkest, lowest-contrast surface (ADR 0001)', () => {
-    const { json, textureImage } = readGlb(readFileSync(glb));
+    const { json, textureImage } = readGlb(modelBytes(CHAMBER_KIT));
     const atlas = json.meshes.find((m) => m.name === 'floor_0')?.primitives[0]?.material ?? -1;
     const base = json.materials[atlas]?.pbrMetallicRoughness?.baseColorTexture?.index ?? -1;
     const img = decodePng(textureImage(base));
