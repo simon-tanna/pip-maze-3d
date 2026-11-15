@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DECOR_KINDS, planDecor, planVines, VINE_CHANCE } from '@core/decor';
+import { decorAvoid, DECOR_KINDS, planDecor, planProps, planVines, VINE_CHANCE } from '@core/decor';
 import { criticalPath, generateLevel, SPAWN_SAFE_RADIUS, tilesWithin } from '@core/generator';
 import type { Level } from '@core/generator';
 import { tileKey } from '@core/grid';
@@ -169,5 +169,26 @@ describe('planVines', () => {
     for (const index of [0, 1]) {
       expect(planVines(generateLevel(index, 42), 42).length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('planProps', () => {
+  it('is planDecor then planVines, from one shared avoid set', () => {
+    for (const seed of SEEDS.slice(0, 12)) {
+      const level = generateLevel(1 + (seed % 5), seed);
+      expect(planProps(level, seed, 0.3)).toEqual([
+        ...planDecor(level, seed),
+        ...planVines(level, seed, 0.3),
+      ]);
+    }
+  });
+
+  it('both planners honour an avoid set passed in', () => {
+    const level = generateLevel(1, 42);
+    const everywhere = decorAvoid(level);
+    level.map.forEach((cells, row) => cells.forEach((_, col) => everywhere.add(tileKey(col, row))));
+    expect(planDecor(level, 42, 1, everywhere)).toEqual([]);
+    expect(planVines(level, 42, 1, everywhere)).toEqual([]);
+    expect(planDecor(level, 42, undefined, decorAvoid(level))).toEqual(planDecor(level, 42));
   });
 });

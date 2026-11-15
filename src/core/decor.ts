@@ -49,8 +49,9 @@ function isOpen(map: TileMap, col: number, row: number): boolean {
 /**
  * Tiles decor must leave clear, as `tileKey` strings: v2's set from Game.js (the critical
  * path, every trap tile and mummy patrol, the keys and the coins) plus the spawn zone.
+ * A fresh set per call; `planProps` computes it once for both planners.
  */
-function avoidTiles(level: Level): Set<string> {
+export function decorAvoid(level: Level): Set<string> {
   const { map } = level;
   const start = startTile(map);
   const exit = { col: level.exitCol, row: level.exitRow };
@@ -67,12 +68,16 @@ function avoidTiles(level: Level): Set<string> {
 
 /**
  * Sparse, wall-hugging decor for a level: only plain floor (map value 0) with a wall to the
- * north, west or east, never on a tile in `avoidTiles`. Moss only grows under a wall to
- * the north. Same level and seed, same plan.
+ * north, west or east, never on a tile in `avoid` (default `decorAvoid(level)`). Moss only
+ * grows under a wall to the north. Same level and seed, same plan.
  */
-export function planDecor(level: Level, seed: number, chance = DECOR_CHANCE): DecorPlacement[] {
+export function planDecor(
+  level: Level,
+  seed: number,
+  chance = DECOR_CHANCE,
+  avoid: ReadonlySet<string> = decorAvoid(level),
+): DecorPlacement[] {
   const { map } = level;
-  const avoid = avoidTiles(level);
   const out: DecorPlacement[] = [];
   for (let row = 0; row < map.length; row++) {
     const cells = map[row] ?? [];
@@ -95,14 +100,18 @@ export function planDecor(level: Level, seed: number, chance = DECOR_CHANCE): De
 
 /**
  * Vines (ticket 18, not a v2 port) hanging from the cap of a wall to the north, over any
- * plain floor tile, never on a tile in `avoidTiles`. Their rng is
+ * plain floor tile, never on a tile in `avoid` (default `decorAvoid(level)`). Their rng is
  * `tileRng(seed, col + 1500, row + 1500)`, a per-tile stream of their own, so they never
  * touch v2's draws (or the generator's): a vine may share its tile with moss or any other
  * prop, or have it to itself. Same level, seed and chance, same vines.
  */
-export function planVines(level: Level, seed: number, chance = VINE_CHANCE): DecorPlacement[] {
+export function planVines(
+  level: Level,
+  seed: number,
+  chance = VINE_CHANCE,
+  avoid: ReadonlySet<string> = decorAvoid(level),
+): DecorPlacement[] {
   const { map } = level;
-  const avoid = avoidTiles(level);
   const out: DecorPlacement[] = [];
   for (let row = 0; row < map.length; row++) {
     const cells = map[row] ?? [];
@@ -114,4 +123,13 @@ export function planVines(level: Level, seed: number, chance = VINE_CHANCE): Dec
     }
   }
   return out;
+}
+
+/** A level's whole prop plan: `planDecor` then `planVines`, sharing one `decorAvoid` set. */
+export function planProps(level: Level, seed: number, vineChance = VINE_CHANCE): DecorPlacement[] {
+  const avoid = decorAvoid(level);
+  return [
+    ...planDecor(level, seed, DECOR_CHANCE, avoid),
+    ...planVines(level, seed, vineChance, avoid),
+  ];
 }
